@@ -8,7 +8,7 @@ import './SellerApplication.css';
 const SellerApplication = () => {
   const { sellerId } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [application, setApplication] = useState(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
@@ -46,6 +46,11 @@ const SellerApplication = () => {
       const response = await api.post(`/admin/sellers/${sellerId}/approve`, {
         action: 'approve'
       });
+      
+      // Обновляем пользователя в контексте после одобрения
+      const userResponse = await api.get('/auth/me');
+      updateUser(userResponse.data.user);
+      
       if (response.data?.message) {
         alert(response.data.message);
       }

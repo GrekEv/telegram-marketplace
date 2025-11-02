@@ -21,13 +21,18 @@ const MyShop = () => {
 
   const fetchShop = async () => {
     try {
+      setLoading(true);
       const response = await api.get('/sellers/my-shop');
       setShop(response.data.seller);
-      setProducts(response.data.products);
-      setCollections(response.data.collections);
+      setProducts(response.data.products || []);
+      setCollections(response.data.collections || []);
       setStats(response.data.stats);
     } catch (error) {
       console.error('Ошибка загрузки магазина:', error);
+      // Если магазин не найден (404), оставляем shop = null
+      if (error.response?.status !== 404) {
+        alert('Ошибка загрузки магазина');
+      }
     } finally {
       setLoading(false);
     }

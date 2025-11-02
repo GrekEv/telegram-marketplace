@@ -47,6 +47,14 @@ const Header = () => {
               
               <NotificationBadge />
               
+              <Link 
+                to="/ai-chat" 
+                className={`nav-link ${isActive('/ai-chat') ? 'active' : ''}`}
+              >
+                <span className="nav-icon">🤖</span>
+                <span className="nav-text">ИИ</span>
+              </Link>
+              
               {(user.role === 'admin' || user.role === 'superadmin') && (
                 <Link 
                   to="/admin/products" 
