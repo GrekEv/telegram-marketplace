@@ -75,6 +75,26 @@ router.post('/apply', authenticate, async (req, res) => {
       [req.user.id, shop_name, description || null]
     );
 
+    // Уведомляем всех админов о новой заявке
+    const adminsResult = await db.query(
+      'SELECT id FROM users WHERE role IN ($1, $2)',
+      ['admin', 'superadmin']
+    );
+
+    for (const admin of adminsResult.rows) {
+      await db.query(
+        `INSERT INTO notifications (user_id, type, title, message, data)
+         VALUES ($1, 'seller_application', 'Новая заявка на продавца', 
+         'Новая заявка от пользователя: ' || $2 || '. Магазин: ' || $3, $4)`,
+        [
+          admin.id,
+          req.user.username || req.user.first_name || 'Пользователь',
+          shop_name,
+          JSON.stringify({ seller_id: result.rows[0].id, user_id: req.user.id })
+        ]
+      );
+    }
+
     res.json({
       message: 'Заявка подана на модерацию',
       seller: result.rows[0]
