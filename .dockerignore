@@ -10,4 +10,5 @@ coverage
 .gitignore
 README.md
 *.md
+frontend/
 
