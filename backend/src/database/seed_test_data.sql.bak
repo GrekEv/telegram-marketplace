@@ -1,0 +1,118 @@
+-- Добавление тестовых данных: пользователь, продавец и 6 товаров
+
+-- 1. Создаем тестового пользователя
+INSERT INTO users (telegram_id, username, first_name, last_name, role)
+VALUES (123456789, 'test_seller', 'Тестовый', 'Продавец', 'seller')
+ON CONFLICT (telegram_id) DO NOTHING
+RETURNING id;
+
+-- 2. Получаем ID созданного пользователя
+DO $$
+DECLARE
+    test_user_id UUID;
+    test_seller_id UUID;
+BEGIN
+    -- Получаем ID пользователя
+    SELECT id INTO test_user_id FROM users WHERE telegram_id = 123456789;
+    
+    -- Если пользователь не найден, создаем его
+    IF test_user_id IS NULL THEN
+        INSERT INTO users (telegram_id, username, first_name, last_name, role)
+        VALUES (123456789, 'test_seller', 'Тестовый', 'Продавец', 'seller')
+        RETURNING id INTO test_user_id;
+    END IF;
+    
+    -- 3. Создаем продавца (магазин)
+    INSERT INTO sellers (user_id, shop_name, description, status, seller_level)
+    VALUES (
+        test_user_id,
+        'Тестовый Магазин',
+        'Магазин для тестирования функций маркетплейса',
+        'approved',
+        'gold'
+    )
+    ON CONFLICT (user_id) DO UPDATE
+    SET shop_name = EXCLUDED.shop_name,
+        description = EXCLUDED.description,
+        status = 'approved'
+    RETURNING id INTO test_seller_id;
+    
+    -- Если продавец уже существовал, получаем его ID
+    IF test_seller_id IS NULL THEN
+        SELECT id INTO test_seller_id FROM sellers WHERE user_id = test_user_id;
+    END IF;
+    
+    -- 4. Добавляем 6 тестовых товаров
+    INSERT INTO products (seller_id, name, description, price, currency, discount, tags, status, is_digital)
+    VALUES
+        (
+            test_seller_id,
+            'Футболка "Telegram Stars"',
+            'Стильная футболка с логотипом Telegram Stars. 100% хлопок, качественная печать.',
+            1999.00,
+            'RUB',
+            0,
+            '["одежда", "мерч", "telegram"]'::jsonb,
+            'approved',
+            false
+        ),
+        (
+            test_seller_id,
+            'Курс по React разработке',
+            'Полный курс по разработке на React. 50+ уроков, практические задания, поддержка.',
+            4999.00,
+            'RUB',
+            15,
+            '["обучение", "цифровой", "react"]'::jsonb,
+            'approved',
+            true
+        ),
+        (
+            test_seller_id,
+            'Кепка с эмблемой',
+            'Брендированная кепка. Регулируемый размер, качественный материал.',
+            1499.00,
+            'RUB',
+            10,
+            '["аксессуары", "мерч"]'::jsonb,
+            'approved',
+            false
+        ),
+        (
+            test_seller_id,
+            'Промокод на подписку Premium',
+            'Промокод на 1 месяц подписки Telegram Premium. Цифровой товар, мгновенная доставка.',
+            299.00,
+            'RUB',
+            0,
+            '["цифровой", "премиум", "промокод"]'::jsonb,
+            'approved',
+            true
+        ),
+        (
+            test_seller_id,
+            'Толстовка с принтом',
+            'Уютная толстовка с уникальным принтом. Размеры S, M, L, XL. Быстрая доставка.',
+            3499.00,
+            'RUB',
+            20,
+            '["одежда", "мерч"]'::jsonb,
+            'approved',
+            false
+        ),
+        (
+            test_seller_id,
+            'Набор стикеров Pro',
+            'Эксклюзивный набор стикеров для Telegram. 100+ стикеров в высоком качестве.',
+            499.00,
+            'RUB',
+            0,
+            '["цифровой", "стикеры", "telegram"]'::jsonb,
+            'approved',
+            true
+        )
+    ON CONFLICT DO NOTHING;
+    
+    RAISE NOTICE 'Тестовые данные успешно добавлены!';
+END $$;
+

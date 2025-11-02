@@ -8,19 +8,58 @@ const router = express.Router();
 router.use(authenticate);
 router.use(requireRole('admin', 'superadmin'));
 
+// Получить детали заявки продавца
+router.get('/sellers/:sellerId', async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    
+    const result = await db.query(
+      `SELECT s.*, 
+         u.username, u.first_name, u.last_name, u.telegram_id, u.photo_url, u.created_at as user_created_at
+       FROM sellers s
+       INNER JOIN users u ON s.user_id = u.id
+       WHERE s.id = $1`,
+      [sellerId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Заявка не найдена' });
+    }
+
+    res.json({ seller: result.rows[0] });
+  } catch (error) {
+    console.error('Ошибка получения заявки:', error);
+    res.status(500).json({ error: 'Ошибка получения заявки' });
+  }
+});
+
 // Одобрить/отклонить заявку продавца
 router.post('/sellers/:sellerId/approve', requireRole('admin', 'superadmin'), async (req, res) => {
   try {
     const { sellerId } = req.params;
-    const { action } = req.body; // 'approve' или 'reject'
+    const { action, rejection_reason, rejection_advice } = req.body; // 'approve' или 'reject'
 
-    const result = await db.query(
-      `UPDATE sellers 
-       SET status = $1, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $2
-       RETURNING *`,
-      [action === 'approve' ? 'approved' : 'rejected', sellerId]
-    );
+    if (action === 'reject' && !rejection_reason) {
+      return res.status(400).json({ error: 'Причина отказа обязательна' });
+    }
+
+    let updateQuery = `UPDATE sellers 
+       SET status = $1, updated_at = CURRENT_TIMESTAMP`;
+    const params = [action === 'approve' ? 'approved' : 'rejected'];
+    
+    if (action === 'reject') {
+      updateQuery += `, rejection_reason = $${params.length + 1}, rejection_advice = $${params.length + 2}`;
+      params.push(rejection_reason || null);
+      params.push(rejection_advice || null);
+    } else {
+      // При одобрении очищаем причину отказа
+      updateQuery += `, rejection_reason = NULL, rejection_advice = NULL`;
+    }
+    
+    updateQuery += ` WHERE id = $${params.length + 1} RETURNING *`;
+    params.push(sellerId);
+
+    const result = await db.query(updateQuery, params);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Продавец не найден' });
@@ -34,6 +73,18 @@ router.post('/sellers/:sellerId/approve', requireRole('admin', 'superadmin'), as
       );
     }
 
+    // Формируем сообщение для продавца
+    let messageText = action === 'approve' 
+      ? 'Ваша заявка на создание магазина одобрена!'
+      : 'Ваша заявка на создание магазина отклонена.';
+    
+    if (action === 'reject' && rejection_reason) {
+      messageText += `\n\nПричина: ${rejection_reason}`;
+      if (rejection_advice) {
+        messageText += `\n\nСоветы по исправлению:\n${rejection_advice}`;
+      }
+    }
+
     // Уведомляем продавца
     await db.query(
       `INSERT INTO notifications (user_id, type, title, message, data)
@@ -44,10 +95,13 @@ router.post('/sellers/:sellerId/approve', requireRole('admin', 'superadmin'), as
       [
         result.rows[0].user_id,
         action === 'approve' ? 'Заявка одобрена' : 'Заявка отклонена',
-        action === 'approve' 
-          ? 'Ваша заявка на создание магазина одобрена!' 
-          : 'Ваша заявка на создание магазина отклонена.',
-        JSON.stringify({ seller_id: sellerId, status: result.rows[0].status })
+        messageText,
+        JSON.stringify({ 
+          seller_id: sellerId, 
+          status: result.rows[0].status,
+          rejection_reason: rejection_reason || null,
+          rejection_advice: rejection_advice || null
+        })
       ]
     );
 
@@ -59,7 +113,11 @@ router.post('/sellers/:sellerId/approve', requireRole('admin', 'superadmin'), as
         req.user.id,
         action === 'approve' ? 'seller_approved' : 'seller_rejected',
         sellerId,
-        JSON.stringify({ status: result.rows[0].status })
+        JSON.stringify({ 
+          status: result.rows[0].status,
+          rejection_reason: rejection_reason || null,
+          rejection_advice: rejection_advice || null
+        })
       ]
     );
 

@@ -139,6 +139,24 @@
   border-color: var(--primary);
 }
 
+.notification-card.clickable {
+  cursor: pointer;
+}
+
+.notification-card.clickable:hover {
+  background: var(--secondary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.click-hint {
+  margin-left: auto;
+  color: var(--primary);
+  font-size: 18px;
+  font-weight: bold;
+  opacity: 0.7;
+}
+
 .notification-card-content {
   flex: 1;
   min-width: 0;

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../utils/api';
 import TelegramBackButton from '../components/TelegramBackButton';
@@ -6,11 +7,16 @@ import './Notifications.css';
 
 const Notifications = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [notifications, setNotifications] = useState([]);
   const [allNotifications, setAllNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [activeTab, setActiveTab] = useState('reports');
+  const [activeTab, setActiveTab] = useState(() => {
+    // Восстанавливаем вкладку из state при возврате
+    return location.state?.tab || 'reports';
+  });
 
   useEffect(() => {
     if (user) {
@@ -19,6 +25,13 @@ const Notifications = () => {
       return () => clearInterval(interval);
     }
   }, [user]);
+
+  // Обновляем активную вкладку при изменении location.state
+  useEffect(() => {
+    if (location.state?.tab) {
+      setActiveTab(location.state.tab);
+    }
+  }, [location.state]);
 
   useEffect(() => {
     filterNotificationsByTab();
@@ -62,7 +75,39 @@ const Notifications = () => {
     setNotifications(filtered);
   };
 
-  const handleMarkAsRead = async (id) => {
+  const handleNotificationClick = async (notification) => {
+    // Отмечаем как прочитанное
+    if (!notification.is_read) {
+      try {
+        await api.put(`/notifications/${notification.id}/read`);
+        setNotifications(prev => 
+          prev.map(n => n.id === notification.id ? { ...n, is_read: true } : n)
+        );
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      } catch (error) {
+        console.error('Ошибка отметки уведомления:', error);
+      }
+    }
+
+    // Переходим на страницу заявки, если это заявка продавца
+    if (notification.type === 'seller_application') {
+      try {
+        const data = typeof notification.data === 'string' 
+          ? JSON.parse(notification.data) 
+          : notification.data;
+        if (data?.seller_id) {
+          navigate(`/admin/seller-application/${data.seller_id}`);
+        }
+      } catch (error) {
+        console.error('Ошибка обработки данных уведомления:', error);
+      }
+    }
+  };
+
+  const handleMarkAsRead = async (id, e) => {
+    if (e) {
+      e.stopPropagation();
+    }
     try {
       await api.put(`/notifications/${id}/read`);
       setNotifications(prev => 
@@ -167,34 +212,39 @@ const Notifications = () => {
 
       <div className="notifications-list">
         {notifications.length > 0 ? (
-          notifications.map((notification) => (
-            <div
-              key={notification.id}
-              className={`notification-card ${!notification.is_read ? 'unread' : ''}`}
-              onClick={() => handleMarkAsRead(notification.id)}
-            >
-              <div className="notification-card-content">
-                <div className="notification-card-title">
-                  {notification.title}
+          notifications.map((notification) => {
+            const isClickable = notification.type === 'seller_application' && 
+                               (user?.role === 'admin' || user?.role === 'superadmin');
+            return (
+              <div
+                key={notification.id}
+                className={`notification-card ${!notification.is_read ? 'unread' : ''} ${isClickable ? 'clickable' : ''}`}
+                onClick={() => isClickable ? handleNotificationClick(notification) : handleMarkAsRead(notification.id, null)}
+              >
+                <div className="notification-card-content">
+                  <div className="notification-card-title">
+                    {notification.title}
+                    {isClickable && <span className="click-hint">→</span>}
+                  </div>
+                  <div className="notification-card-message">
+                    {notification.message}
+                  </div>
+                  <div className="notification-card-time">
+                    {new Date(notification.created_at).toLocaleString('ru-RU', {
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </div>
                 </div>
-                <div className="notification-card-message">
-                  {notification.message}
-                </div>
-                <div className="notification-card-time">
-                  {new Date(notification.created_at).toLocaleString('ru-RU', {
-                    day: 'numeric',
-                    month: 'long',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
-                </div>
+                {!notification.is_read && (
+                  <div className="notification-unread-indicator"></div>
+                )}
               </div>
-              {!notification.is_read && (
-                <div className="notification-unread-indicator"></div>
-              )}
-            </div>
-          ))
+            );
+          })
         ) : (
           <div className="no-notifications-state">
             <div className="empty-icon">
