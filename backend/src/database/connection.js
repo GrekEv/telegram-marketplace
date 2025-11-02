@@ -28,10 +28,10 @@ if (process.env.DATABASE_URL) {
   // Проверка обязательных переменных в production
   if (process.env.NODE_ENV === 'production') {
     if (!password) {
-      console.error('❌ DB_PASSWORD не установлен в production!');
+      console.error('DB_PASSWORD не установлен в production!');
     }
     if (host === 'localhost') {
-      console.warn('⚠️  DB_HOST использует localhost в production! Проверьте переменные окружения.');
+      console.warn('DB_HOST использует localhost в production! Проверьте переменные окружения.');
     }
   }
 
@@ -53,11 +53,11 @@ const pool = new Pool(poolConfig);
 const connect = async () => {
   try {
     const client = await pool.connect();
-    console.log('📦 Подключение к PostgreSQL успешно');
+    console.log('Подключение к PostgreSQL успешно');
     client.release();
     return pool;
   } catch (error) {
-    console.error('❌ Ошибка подключения к PostgreSQL:', error);
+    console.error('Ошибка подключения к PostgreSQL:', error);
     throw error;
   }
 };
@@ -68,10 +68,10 @@ const query = async (text, params) => {
   try {
     const res = await pool.query(text, params);
     const duration = Date.now() - start;
-    console.log('📊 Выполнен запрос', { text, duration, rows: res.rowCount });
+    console.log('Выполнен запрос', { text, duration, rows: res.rowCount });
     return res;
   } catch (error) {
-    console.error('❌ Ошибка запроса:', error);
+    console.error('Ошибка запроса:', error);
     throw error;
   }
 };

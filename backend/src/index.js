@@ -40,10 +40,10 @@ app.use('/uploads', express.static(join(__dirname, '../uploads')));
 // Проверка подключения к БД
 db.connect()
   .then(() => {
-    console.log('✅ Подключение к базе данных установлено');
+    console.log('Подключение к базе данных установлено');
   })
   .catch((err) => {
-    console.error('❌ Ошибка подключения к БД:', err);
+    console.error('Ошибка подключения к БД:', err);
     process.exit(1);
   });
 

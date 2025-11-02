@@ -7,24 +7,33 @@
 - `backend/` - Node.js + Express сервер
 - `frontend/` - React приложение для Telegram Mini App
 
-## Основные функции
+## Установка
 
-- Маркетплейс для блогеров
-- Социальная сеть с лентой, подписками, лайками
-- Система заказов и оплаты (Stars, крипта, фиат)
-- Админ-панель
-- AI функции для анализа товаров
+### Backend
+
+```bash
+cd backend
+npm install
+cp .env.example .env
+# Заполните .env файл
+npm run dev
+```
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+cp .env.example .env
+# Заполните .env файл
+npm run dev
+```
+
+## Деплой
+
+См. `DEPLOY.md`
 
 ## Технологии
 
 - Backend: Node.js, Express, PostgreSQL
-- Frontend: React, Telegram WebApp API
-- Интеграции: Telegram Stars, криптовалюты
-
-## Установка и запуск
-
-См. инструкции в `SETUP.md`
-
-## Деплой
-
-См. инструкции в `DEPLOY.md`
+- Frontend: React, Vite, Telegram WebApp API

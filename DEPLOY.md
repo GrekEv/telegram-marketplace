@@ -1,34 +1,14 @@
-# Деплой проекта в продакшн
+# Деплой проекта
 
-## Важно: Как деплоить каждую часть
+## Backend на Railway
 
-### Backend (Node.js/Express) - деплоить как Web Service
-- Это серверное приложение, которое должно работать постоянно
-- Требует Node.js runtime
-- Обрабатывает API запросы, работает с базой данных
-
-### Frontend (React/Vite) - деплоить как Static Site
-- Это статические файлы (HTML, CSS, JS), собранные из React
-- Не требует сервера Node.js после сборки
-- Просто отдает файлы пользователю
-
----
-
-## Вариант 1: Railway (Backend) + Vercel (Frontend) - Рекомендуется
-
-### Backend на Railway - как Web Service
-
-1. Зарегистрируйтесь: https://railway.app/
-2. Создайте новый проект: "New Project" → "Deploy from GitHub repo"
-3. Добавьте PostgreSQL:
-   - "+ New" → "Database" → "PostgreSQL"
-4. Добавьте Web Service:
-   - "+ New" → "GitHub Repo" → выберите репозиторий
-   - В Settings установите:
-     - **Root Directory:** `backend`
-     - **Build Command:** (оставьте пустым, Railway определит автоматически)
-     - **Start Command:** `npm start`
-5. Переменные окружения (Service → Variables):
+1. Создайте проект на Railway.app
+2. Добавьте PostgreSQL: "+ New" → "Database" → "PostgreSQL"
+3. Добавьте Web Service: "+ New" → "GitHub Repo"
+4. Настройки Web Service:
+   - Root Directory: `backend`
+   - Start Command: `npm start`
+5. Переменные окружения:
    ```
    NODE_ENV=production
    PORT=3000
@@ -37,134 +17,44 @@
    DB_NAME=${{Postgres.PGDATABASE}}
    DB_USER=${{Postgres.PGUSER}}
    DB_PASSWORD=${{Postgres.PGPASSWORD}}
-   JWT_SECRET=ваш_секретный_ключ
-   TELEGRAM_BOT_TOKEN=ваш_токен
-   TELEGRAM_BOT_USERNAME=ваш_username
+   JWT_SECRET=сгенерировать_через_openssl_rand_-hex_32
+   TELEGRAM_BOT_TOKEN=токен_от_BotFather
+   TELEGRAM_BOT_USERNAME=username_бота
    CDN_URL=https://ваш-домен.railway.app/uploads
    ```
-6. Получите URL backend после деплоя
+6. Выполните миграцию БД:
+   - PostgreSQL → Connect → скопируйте команду psql
+   - Выполните: `psql -h хост -U postgres -d railway -f backend/src/database/schema.sql`
+7. Получите URL backend: Settings → Generate Domain
 
-### Frontend на Vercel - как Static Site
+## Frontend на Vercel
 
-1. Зарегистрируйтесь: https://vercel.com/
-2. "Add New Project" → импортируйте GitHub репозиторий
-3. Настройки проекта:
-   - **Root Directory:** `frontend`
-   - **Framework Preset:** Vite (определится автоматически)
-   - **Build Command:** `npm run build`
-   - **Output Directory:** `dist`
-   - **Install Command:** `npm install`
-4. Переменные окружения:
+1. Создайте проект на Vercel.com
+2. Импортируйте GitHub репозиторий
+3. Настройки:
+   - Root Directory: `frontend`
+   - Framework: Vite
+   - Build Command: `npm run build`
+   - Output Directory: `dist`
+4. Переменная окружения:
    ```
    VITE_API_URL=https://ваш-backend.railway.app/api
    ```
-5. Deploy → получите URL frontend
-6. Обновите BotFather с URL от Vercel
+5. Deploy → скопируйте URL frontend
 
----
+## Настройка BotFather
 
-## Вариант 2: Render (все на одной платформе)
+1. Откройте @BotFather в Telegram
+2. `/myapps` → выберите Mini App
+3. `/editapp` → "Edit URL" → вставьте URL от Vercel
 
-### Backend на Render - как Web Service
+## Обновление кода
 
-1. Зарегистрируйтесь: https://render.com/
-2. Создайте PostgreSQL БД:
-   - Dashboard → "New" → "PostgreSQL"
-   - Бесплатный план подойдет для старта
-3. Деплой Backend:
-   - "New" → **"Web Service"** (ВАЖНО: не Static Site!)
-   - Свяжите GitHub репозиторий
-   - Настройки:
-     - **Root Directory:** `backend`
-     - **Build Command:** `npm install`
-     - **Start Command:** `npm start`
-     - **Plan:** Free или Starter
-   - Environment Variables:
-     ```
-     NODE_ENV=production
-     DB_HOST=ваш_хост_из_Render
-     DB_PORT=5432
-     DB_NAME=ваша_бд
-     DB_USER=ваш_пользователь
-     DB_PASSWORD=ваш_пароль
-     JWT_SECRET=сгенерируйте_случайный
-     TELEGRAM_BOT_TOKEN=ваш_токен
-     TELEGRAM_BOT_USERNAME=ваш_username
-     ```
+После изменений:
+```bash
+git add .
+git commit -m "описание изменений"
+git push
+```
 
-### Frontend на Render - как Static Site
-
-1. На Render Dashboard → "New" → **"Static Site"** (ВАЖНО: не Web Service!)
-2. Свяжите тот же GitHub репозиторий
-3. Настройки:
-   - **Root Directory:** `frontend`
-   - **Build Command:** `npm install && npm run build`
-   - **Publish Directory:** `dist`
-4. Environment Variables:
-   ```
-   VITE_API_URL=https://ваш-backend.onrender.com/api
-   ```
-
----
-
-## Почему разные типы деплоя?
-
-### Backend = Web Service потому что:
-- Нужен Node.js runtime для запуска сервера
-- Обрабатывает запросы в реальном времени
-- Работает с базой данных
-- Должен работать постоянно (24/7)
-
-### Frontend = Static Site потому что:
-- После сборки это просто HTML/CSS/JS файлы
-- Можно отдавать через CDN или статический хостинг
-- Не требует сервера
-- Быстрее и дешевле
-
----
-
-## После деплоя
-
-1. Запустите миграцию БД:
-   - Railway: PostgreSQL → "Connect" → "Query" → выполните `schema.sql`
-   - Render: PostgreSQL → "Info" → "Internal Database URL" → подключитесь и выполните миграцию
-
-2. Обновите URL в BotFather:
-   - Используйте URL frontend (от Vercel или Render)
-   - URL должен начинаться с `https://`
-
-3. Проверьте работу:
-   - Откройте бота в Telegram
-   - Mini App должен открыться и работать
-
----
-
-## Важно для продакшна
-
-1. Безопасность:
-   - Используйте сильные пароли для БД
-   - JWT_SECRET должен быть длинным и случайным (минимум 32 символа)
-   - Никогда не коммитьте `.env` файлы в Git
-
-2. CDN для файлов:
-   - Для продакшна используйте Cloudinary, AWS S3, или подобные
-   - Обновите `CDN_URL` в переменных окружения backend
-
-3. Мониторинг:
-   - Настройте логирование
-   - Добавьте health check endpoint (`/health`)
-   - Отслеживайте ошибки
-
-4. Производительность:
-   - Бесплатные планы могут "засыпать" при неактивности
-   - Для продакшна рассмотрите платные планы
-
----
-
-## Резюме
-
-- **Backend** → Web Service (Railway Web Service / Render Web Service)
-- **Frontend** → Static Site (Vercel / Render Static Site)
-- **База данных** → PostgreSQL (Railway Database / Render PostgreSQL)
-
-Это самый эффективный и экономичный вариант деплоя.
+Railway и Vercel автоматически перезапустят приложение.
