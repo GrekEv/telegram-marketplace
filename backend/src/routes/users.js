@@ -186,6 +186,38 @@ router.get('/search', authenticate, async (req, res) => {
   }
 });
 
+// Получить список магазинов, на которые подписан пользователь
+router.get('/subscriptions', authenticate, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const result = await db.query(
+      `SELECT 
+        s.*,
+        u.username,
+        u.first_name,
+        u.last_name,
+        u.photo_url,
+        COUNT(DISTINCT p.id) as products_count,
+        COUNT(DISTINCT sub2.id) as subscribers_count
+       FROM subscriptions sub
+       INNER JOIN sellers s ON sub.seller_id = s.id
+       INNER JOIN users u ON s.user_id = u.id
+       LEFT JOIN products p ON p.seller_id = s.id AND p.status = 'approved'
+       LEFT JOIN subscriptions sub2 ON sub2.seller_id = s.id
+       WHERE sub.user_id = $1 AND s.status = 'approved'
+       GROUP BY s.id, u.id
+       ORDER BY sub.created_at DESC`,
+      [userId]
+    );
+
+    res.json({ sellers: result.rows });
+  } catch (error) {
+    console.error('Ошибка получения подписок:', error);
+    res.status(500).json({ error: 'Ошибка получения подписок' });
+  }
+});
+
 // Подписаться/отписаться от продавца
 router.post('/subscribe/:sellerId', authenticate, async (req, res) => {
   try {
