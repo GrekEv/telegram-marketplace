@@ -77,8 +77,7 @@ router.post('/apply', authenticate, async (req, res) => {
 
     // Уведомляем всех админов о новой заявке
     const adminsResult = await db.query(
-      'SELECT id FROM users WHERE role IN ($1, $2)',
-      ['admin', 'superadmin']
+      "SELECT id FROM users WHERE role IN ('admin', 'superadmin')"
     );
 
     for (const admin of adminsResult.rows) {
