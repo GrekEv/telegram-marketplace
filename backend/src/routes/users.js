@@ -85,60 +85,46 @@ router.get('/feed', authenticate, async (req, res) => {
         return acc;
       }, { categories: [], shop_names: [] });
 
-    let query = `
+    let whereConditions = ['p.status = $2', 's.status = $3'];
+    const params = [userId, 'approved', 'approved'];
+    let paramIndex = 4;
+
+    if (category) {
+      if (category === 'promoted') {
+        whereConditions.push('p.is_promoted = true');
+        whereConditions.push('p.promotion_until > NOW()');
+      } else if (category === 'subscription') {
+        whereConditions.push('sub.id IS NOT NULL');
+      } else if (category === 'popular') {
+        whereConditions.push('p.purchases_count > 10');
+      }
+    }
+
+    const query = `
       SELECT 
         p.*,
         s.shop_name,
         s.logo_url as seller_logo,
         u.username as seller_username,
         COUNT(DISTINCT pl.id) as likes_count,
-        MAX(CASE WHEN sub.id IS NOT NULL THEN 1 ELSE 0 END) as is_subscribed,
-        CASE 
-          WHEN p.is_promoted = true AND p.promotion_until > NOW() THEN 'promoted'
-          WHEN MAX(CASE WHEN sub.id IS NOT NULL THEN 1 ELSE 0 END) = 1 THEN 'subscription'
-          WHEN p.purchases_count > 10 OR COUNT(DISTINCT pl.id) > 50 THEN 'popular'
-          ELSE 'recommended'
-        END as feed_category,
-        CASE
-          WHEN p.is_promoted = true AND p.promotion_until > NOW() THEN 1000
-          WHEN MAX(CASE WHEN sub.id IS NOT NULL THEN 1 ELSE 0 END) = 1 THEN 800
-          WHEN p.purchases_count > 20 THEN 600
-          WHEN COUNT(DISTINCT pl.id) > 100 THEN 400
-          ELSE 100
-        END + COALESCE((SELECT COUNT(*) * 50 FROM reviews r WHERE r.product_id = p.id AND r.rating >= 4), 0) as relevance_score
+        CASE WHEN sub.id IS NOT NULL THEN true ELSE false END as is_subscribed
       FROM products p
       INNER JOIN sellers s ON p.seller_id = s.id
       INNER JOIN users u ON s.user_id = u.id
       LEFT JOIN product_likes pl ON p.id = pl.product_id
       LEFT JOIN subscriptions sub ON sub.user_id = $1 AND sub.seller_id = s.id
-      WHERE p.status = 'approved' AND s.status = 'approved'
-      GROUP BY p.id, s.id, u.id, s.shop_name, s.logo_url, u.username
-    `;
-
-    const params = [userId];
-    let paramIndex = 2;
-
-    if (category) {
-      if (category === 'promoted') {
-        query += ` HAVING MAX(CASE WHEN p.is_promoted = true AND p.promotion_until > NOW() THEN 1 ELSE 0 END) = 1`;
-      } else if (category === 'subscription') {
-        query += ` HAVING MAX(CASE WHEN sub.id IS NOT NULL THEN 1 ELSE 0 END) = 1`;
-      } else if (category === 'popular') {
-        query += ` HAVING p.purchases_count > 10`;
-      }
-    }
-
-    query += `
+      WHERE ${whereConditions.join(' AND ')}
+      GROUP BY p.id, s.id, u.id, s.shop_name, s.logo_url, u.username, sub.id
       ORDER BY 
         CASE 
           WHEN p.is_promoted = true AND p.promotion_until > NOW() THEN 1
-          WHEN MAX(CASE WHEN sub.id IS NOT NULL THEN 1 ELSE 0 END) = 1 THEN 2
+          WHEN sub.id IS NOT NULL THEN 2
           WHEN p.purchases_count > 10 THEN 3
           ELSE 4
         END,
-        COUNT(DISTINCT pl.id) DESC,
         p.created_at DESC
-      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
 
     params.push(parseInt(limit), parseInt(offset));
 
