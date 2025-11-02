@@ -1,11 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import api from '../utils/api';
 import TelegramBackButton from '../components/TelegramBackButton';
+import Modal from '../components/Modal';
 import './Settings.css';
 
 const Settings = () => {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const navigate = useNavigate();
   const [settings, setSettings] = useState({
     notifications: true,
@@ -14,12 +16,66 @@ const Settings = () => {
     language: 'ru',
     currency: 'RUB'
   });
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailInput, setEmailInput] = useState('');
 
-  const handleToggle = (key) => {
+  useEffect(() => {
+    // Загружаем настройки из localStorage
+    const savedDarkMode = localStorage.getItem('darkMode') === 'true';
+    const savedNotifications = localStorage.getItem('notifications') !== 'false';
+    const savedEmailNotifications = localStorage.getItem('emailNotifications') === 'true';
+    const savedLanguage = localStorage.getItem('language') || 'ru';
+    const savedCurrency = localStorage.getItem('currency') || 'RUB';
+
+    setSettings({
+      notifications: savedNotifications,
+      emailNotifications: savedEmailNotifications,
+      darkMode: savedDarkMode,
+      language: savedLanguage,
+      currency: savedCurrency
+    });
+
+    // Применяем темную тему
+    applyDarkTheme(savedDarkMode);
+    
+    // Загружаем email пользователя
+    if (user?.email) {
+      setEmailInput(user.email);
+    }
+  }, [user]);
+
+  const applyDarkTheme = (enabled) => {
+    if (enabled) {
+      document.body.classList.add('dark-theme');
+    } else {
+      document.body.classList.remove('dark-theme');
+    }
+  };
+
+  const handleToggle = async (key) => {
+    if (key === 'emailNotifications' && !settings.emailNotifications) {
+      // Если включаем email уведомления, проверяем наличие email
+      if (!user?.email) {
+        setShowEmailModal(true);
+        return;
+      }
+    }
+
+    const newValue = !settings[key];
     setSettings(prev => ({
       ...prev,
-      [key]: !prev[key]
+      [key]: newValue
     }));
+
+    // Сохраняем в localStorage
+    if (key === 'darkMode') {
+      localStorage.setItem('darkMode', newValue);
+      applyDarkTheme(newValue);
+    } else if (key === 'notifications') {
+      localStorage.setItem('notifications', newValue);
+    } else if (key === 'emailNotifications') {
+      localStorage.setItem('emailNotifications', newValue);
+    }
   };
 
   const handleSelect = (key, value) => {
@@ -27,6 +83,41 @@ const Settings = () => {
       ...prev,
       [key]: value
     }));
+    localStorage.setItem(key, value);
+  };
+
+  const handleEmailSubmit = async () => {
+    if (!emailInput.trim()) {
+      alert('Введите email адрес');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailInput.trim())) {
+      alert('Введите корректный email адрес');
+      return;
+    }
+
+    try {
+      const response = await api.put('/auth/profile', {
+        email: emailInput.trim()
+      });
+
+      if (updateUser && response.data.user) {
+        updateUser(response.data.user);
+      }
+
+      setSettings(prev => ({
+        ...prev,
+        emailNotifications: true
+      }));
+      localStorage.setItem('emailNotifications', 'true');
+      setShowEmailModal(false);
+      alert('Email успешно сохранен и уведомления включены');
+    } catch (error) {
+      console.error('Ошибка сохранения email:', error);
+      alert('Не удалось сохранить email. Попробуйте позже.');
+    }
   };
 
   if (!user) {
@@ -90,6 +181,9 @@ const Settings = () => {
               />
               <span className="toggle-slider"></span>
             </label>
+            {user.email && (
+              <span className="settings-hint">({user.email})</span>
+            )}
           </div>
         </div>
 
@@ -140,16 +234,16 @@ const Settings = () => {
 
         <div className="settings-section">
           <h2>Помощь</h2>
-          <div className="settings-item">
+          <Link to="/help" className="settings-item">
             <span className="settings-icon">❓</span>
             <span className="settings-label">Справка</span>
             <span className="settings-arrow">→</span>
-          </div>
-          <div className="settings-item">
+          </Link>
+          <Link to="/support" className="settings-item">
             <span className="settings-icon">📞</span>
             <span className="settings-label">Связаться с поддержкой</span>
             <span className="settings-arrow">→</span>
-          </div>
+          </Link>
         </div>
 
         {(user.role === 'admin' || user.role === 'superadmin') && (
@@ -168,9 +262,43 @@ const Settings = () => {
           </div>
         )}
       </div>
+
+      <Modal
+        isOpen={showEmailModal}
+        onClose={() => setShowEmailModal(false)}
+        title="Введите email адрес"
+        size="small"
+      >
+        <div className="email-modal-content">
+          <p>Для включения email уведомлений необходимо указать ваш email адрес.</p>
+          <input
+            type="email"
+            placeholder="example@email.com"
+            value={emailInput}
+            onChange={(e) => setEmailInput(e.target.value)}
+            className="email-input"
+            autoFocus
+          />
+          <div className="modal-buttons">
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setShowEmailModal(false)}
+            >
+              Отмена
+            </button>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={handleEmailSubmit}
+            >
+              Сохранить
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
 
 export default Settings;
-

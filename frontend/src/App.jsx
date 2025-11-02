@@ -21,6 +21,8 @@ import Favorites from './pages/Favorites';
 import Cart from './pages/Cart';
 import Search from './pages/Search';
 import AIChat from './pages/AIChat';
+import Help from './pages/Help';
+import Support from './pages/Support';
 import BottomNavigation from './components/BottomNavigation';
 
 function App() {
@@ -64,6 +66,8 @@ function App() {
             <Route path="/cart" element={<Cart />} />
             <Route path="/search" element={<Search />} />
             <Route path="/ai-chat" element={<AIChat />} />
+            <Route path="/help" element={<Help />} />
+            <Route path="/support" element={<Support />} />
             <Route path="/login" element={<Login />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/admin/seller-application/:sellerId" element={<SellerApplication />} />
