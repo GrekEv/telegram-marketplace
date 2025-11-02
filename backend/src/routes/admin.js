@@ -151,36 +151,113 @@ router.post('/sellers/:sellerId/approve', requireRole('admin', 'superadmin'), as
 router.post('/products/:productId/moderate', async (req, res) => {
   try {
     const { productId } = req.params;
-    const { action } = req.body; // 'approve' или 'reject'
+    const { action, rejection_reason, rejection_advice } = req.body; // 'approve' или 'reject'
 
-    const result = await db.query(
-      `UPDATE products 
-       SET status = $1, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $2
-       RETURNING *`,
-      [action === 'approve' ? 'approved' : 'rejected', productId]
+    if (action === 'reject' && !rejection_reason) {
+      return res.status(400).json({ error: 'Причина отказа обязательна' });
+    }
+
+    // Получаем информацию о товаре и продавце перед обновлением
+    const productInfo = await db.query(
+      `SELECT p.*, s.user_id as seller_user_id
+       FROM products p
+       INNER JOIN sellers s ON p.seller_id = s.id
+       WHERE p.id = $1`,
+      [productId]
     );
 
-    if (result.rows.length === 0) {
+    if (productInfo.rows.length === 0) {
       return res.status(404).json({ error: 'Товар не найден' });
     }
 
-    // Аудит лог
-    await db.query(
-      `INSERT INTO audit_logs (admin_id, action, entity_type, entity_id, changes)
-       VALUES ($1, $2, 'product', $3, $4)`,
-      [
-        req.user.id,
-        action === 'approve' ? 'product_approved' : 'product_rejected',
-        productId,
-        JSON.stringify({ status: result.rows[0].status })
-      ]
-    );
+    let updateQuery = `UPDATE products 
+       SET status = $1, updated_at = CURRENT_TIMESTAMP`;
+    const params = [action === 'approve' ? 'approved' : 'rejected'];
+    
+    if (action === 'reject') {
+      updateQuery += `, rejection_reason = $${params.length + 1}, rejection_advice = $${params.length + 2}`;
+      params.push(rejection_reason || null);
+      params.push(rejection_advice || null);
+    } else {
+      // При одобрении очищаем причину отказа
+      updateQuery += `, rejection_reason = NULL, rejection_advice = NULL`;
+    }
+    
+    updateQuery += ` WHERE id = $${params.length + 1} RETURNING *`;
+    params.push(productId);
 
-    res.json({ product: result.rows[0] });
+    const result = await db.query(updateQuery, params);
+
+    // Формируем сообщение для продавца
+    let messageText = action === 'approve' 
+      ? `Ваш товар "${productInfo.rows[0].name}" одобрен и опубликован!`
+      : `Ваш товар "${productInfo.rows[0].name}" отклонен.`;
+    
+    if (action === 'reject' && rejection_reason) {
+      messageText += `\n\nПричина: ${rejection_reason}`;
+      if (rejection_advice) {
+        messageText += `\n\nСоветы по исправлению:\n${rejection_advice}`;
+      }
+    }
+
+    // Уведомляем продавца
+    try {
+      await db.query(
+        `INSERT INTO notifications (user_id, type, title, message, data)
+         VALUES ($1, 'product_moderation', 
+         $2, 
+         $3,
+         $4)`,
+        [
+          productInfo.rows[0].seller_user_id,
+          action === 'approve' ? 'Товар одобрен' : 'Товар отклонен',
+          messageText,
+          JSON.stringify({ 
+            product_id: productId, 
+            product_name: productInfo.rows[0].name,
+            status: result.rows[0].status,
+            rejection_reason: rejection_reason || null,
+            rejection_advice: rejection_advice || null
+          })
+        ]
+      );
+      console.log(`Уведомление отправлено продавцу ${productInfo.rows[0].seller_user_id}`);
+    } catch (notifError) {
+      console.error('Ошибка создания уведомления:', notifError);
+    }
+
+    // Аудит лог
+    try {
+      await db.query(
+        `INSERT INTO audit_logs (admin_id, action, entity_type, entity_id, changes)
+         VALUES ($1, $2, 'product', $3, $4)`,
+        [
+          req.user.id,
+          action === 'approve' ? 'product_approved' : 'product_rejected',
+          productId,
+          JSON.stringify({ 
+            status: result.rows[0].status,
+            rejection_reason: rejection_reason || null,
+            rejection_advice: rejection_advice || null
+          })
+        ]
+      );
+    } catch (auditError) {
+      console.error('Ошибка записи аудит лога:', auditError);
+    }
+
+    res.json({ 
+      product: result.rows[0],
+      message: action === 'approve' 
+        ? 'Товар одобрен, продавец получил уведомление' 
+        : 'Товар отклонен, продавец получил уведомление'
+    });
   } catch (error) {
     console.error('Ошибка модерации товара:', error);
-    res.status(500).json({ error: 'Ошибка модерации товара' });
+    res.status(500).json({ 
+      error: 'Ошибка модерации товара',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
@@ -206,7 +283,7 @@ router.get('/sellers/pending', async (req, res) => {
 router.get('/products/pending', async (req, res) => {
   try {
     const result = await db.query(
-      `SELECT p.*, s.shop_name, u.username
+      `SELECT p.*, s.shop_name, s.user_id as seller_user_id, u.username, u.first_name, u.last_name
        FROM products p
        INNER JOIN sellers s ON p.seller_id = s.id
        INNER JOIN users u ON s.user_id = u.id
@@ -218,6 +295,33 @@ router.get('/products/pending', async (req, res) => {
   } catch (error) {
     console.error('Ошибка получения товаров:', error);
     res.status(500).json({ error: 'Ошибка получения товаров' });
+  }
+});
+
+// Получить детали товара для модерации
+router.get('/products/:productId', async (req, res) => {
+  try {
+    const { productId } = req.params;
+    
+    const result = await db.query(
+      `SELECT p.*, 
+         s.shop_name, s.user_id as seller_user_id,
+         u.username, u.first_name, u.last_name, u.telegram_id, u.photo_url
+       FROM products p
+       INNER JOIN sellers s ON p.seller_id = s.id
+       INNER JOIN users u ON s.user_id = u.id
+       WHERE p.id = $1`,
+      [productId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Товар не найден' });
+    }
+
+    res.json({ product: result.rows[0] });
+  } catch (error) {
+    console.error('Ошибка получения товара:', error);
+    res.status(500).json({ error: 'Ошибка получения товара' });
   }
 });
 

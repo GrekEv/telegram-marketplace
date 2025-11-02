@@ -48,6 +48,16 @@ const Header = () => {
               
               <NotificationBadge />
               
+              {(user.role === 'admin' || user.role === 'superadmin') && (
+                <Link 
+                  to="/admin/products" 
+                  className={`nav-link ${isActive('/admin/products') ? 'active' : ''}`}
+                >
+                  <span className="nav-icon">📦</span>
+                  <span className="nav-text">Модерация</span>
+                </Link>
+              )}
+              
               <Link 
                 to="/profile" 
                 className={`nav-link ${isActive('/profile') ? 'active' : ''}`}

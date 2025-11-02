@@ -11,6 +11,8 @@ import Profile from './pages/Profile';
 import Login from './pages/Login';
 import Notifications from './pages/Notifications';
 import SellerApplication from './pages/SellerApplication';
+import ProductModerationList from './pages/ProductModerationList';
+import ProductModeration from './pages/ProductModeration';
 
 function App() {
   const [isReady, setIsReady] = useState(false);
@@ -48,6 +50,8 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/admin/seller-application/:sellerId" element={<SellerApplication />} />
+            <Route path="/admin/products" element={<ProductModerationList />} />
+            <Route path="/admin/product-moderation/:productId" element={<ProductModeration />} />
           </Routes>
         </div>
       </Router>
