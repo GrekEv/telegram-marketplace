@@ -36,7 +36,13 @@ const PaymentSettings = () => {
   const fetchPaymentSettings = async () => {
     try {
       const response = await api.get('/sellers/my-shop');
-      const methods = response.data.shop.payment_methods || {};
+      
+      // Проверяем что seller существует
+      if (!response.data || !response.data.seller) {
+        throw new Error('Магазин не найден');
+      }
+      
+      const methods = response.data.seller.payment_methods || {};
       
       setPaymentMethods({
         stars: methods.stars || false,
@@ -55,7 +61,14 @@ const PaymentSettings = () => {
       setLoading(false);
     } catch (error) {
       console.error('Ошибка загрузки настроек:', error);
-      showToast('Ошибка загрузки настроек оплаты', 'error');
+      
+      // Если магазин не найден, показываем сообщение и возвращаем на главную
+      if (error.response?.status === 404 || error.message === 'Магазин не найден') {
+        showToast('Сначала создайте магазин', 'error');
+        setTimeout(() => navigate('/profile'), 2000);
+      } else {
+        showToast('Ошибка загрузки настроек оплаты', 'error');
+      }
       setLoading(false);
     }
   };
