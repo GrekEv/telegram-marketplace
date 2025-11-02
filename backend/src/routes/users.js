@@ -120,23 +120,23 @@ router.get('/feed', authenticate, async (req, res) => {
 
     if (category) {
       if (category === 'promoted') {
-        query += ` AND p.is_promoted = true AND p.promotion_until > NOW()`;
+        query += ` HAVING MAX(CASE WHEN p.is_promoted = true AND p.promotion_until > NOW() THEN 1 ELSE 0 END) = 1`;
       } else if (category === 'subscription') {
-        query += ` AND sub.id IS NOT NULL`;
+        query += ` HAVING MAX(CASE WHEN sub.id IS NOT NULL THEN 1 ELSE 0 END) = 1`;
       } else if (category === 'popular') {
-        query += ` AND p.purchases_count > 10`;
+        query += ` HAVING p.purchases_count > 10`;
       }
     }
 
-    query += ` GROUP BY p.id, s.id, u.id, sub.id
+    query += `
       ORDER BY 
-        CASE feed_category
-          WHEN 'promoted' THEN 1
-          WHEN 'subscription' THEN 2
-          WHEN 'popular' THEN 3
+        CASE 
+          WHEN p.is_promoted = true AND p.promotion_until > NOW() THEN 1
+          WHEN MAX(CASE WHEN sub.id IS NOT NULL THEN 1 ELSE 0 END) = 1 THEN 2
+          WHEN p.purchases_count > 10 THEN 3
           ELSE 4
         END,
-        relevance_score DESC,
+        COUNT(DISTINCT pl.id) DESC,
         p.created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
 
