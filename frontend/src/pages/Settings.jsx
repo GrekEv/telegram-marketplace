@@ -168,6 +168,17 @@ const Settings = () => {
           </Link>
         </div>
 
+        {(user.role === 'seller' || user.role === 'admin' || user.role === 'superadmin') && (
+          <div className="settings-section">
+            <h2>Магазин</h2>
+            <Link to="/payment-settings" className="settings-item">
+              <span className="settings-icon">💳</span>
+              <span className="settings-label">Способы оплаты</span>
+              <span className="settings-arrow">→</span>
+            </Link>
+          </div>
+        )}
+
         <div className="settings-section">
           <h2>{t('notifications')}</h2>
           <div className="settings-item">

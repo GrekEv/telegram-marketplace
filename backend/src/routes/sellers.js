@@ -320,6 +320,44 @@ router.put('/my-shop', authenticate, requireSeller, upload.fields([
   }
 });
 
+// Обновить способы оплаты
+router.put('/payment-methods', authenticate, requireSeller, async (req, res) => {
+  try {
+    const { payment_methods } = req.body;
+
+    if (!payment_methods) {
+      return res.status(400).json({ error: 'Способы оплаты обязательны' });
+    }
+
+    const sellerResult = await db.query(
+      'SELECT id FROM sellers WHERE user_id = $1',
+      [req.user.id]
+    );
+
+    if (sellerResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Магазин не найден' });
+    }
+
+    const sellerId = sellerResult.rows[0].id;
+
+    const result = await db.query(
+      `UPDATE sellers 
+       SET payment_methods = $1, updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $2 
+       RETURNING *`,
+      [JSON.stringify(payment_methods), sellerId]
+    );
+
+    res.json({ 
+      message: 'Способы оплаты обновлены',
+      payment_methods: result.rows[0].payment_methods
+    });
+  } catch (error) {
+    console.error('Ошибка обновления способов оплаты:', error);
+    res.status(500).json({ error: 'Ошибка обновления способов оплаты' });
+  }
+});
+
 // Добавить товар
 router.post('/products', authenticate, requireSeller, upload.array('images', 10), async (req, res) => {
   try {
