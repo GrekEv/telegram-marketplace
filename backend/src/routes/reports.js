@@ -49,6 +49,28 @@ router.post('/', authenticate, async (req, res) => {
       ]
     );
 
+    // Уведомляем всех админов о новой жалобе
+    const adminsResult = await db.query(
+      "SELECT id FROM users WHERE role IN ('admin', 'superadmin')"
+    );
+
+    const reporterUser = await db.query('SELECT username, first_name FROM users WHERE id = $1', [reporterId]);
+    const reporterName = reporterUser.rows[0]?.username || reporterUser.rows[0]?.first_name || 'Пользователь';
+
+    for (const admin of adminsResult.rows) {
+      await db.query(
+        `INSERT INTO notifications (user_id, type, title, message, data)
+         VALUES ($1, 'report', 'Новая жалоба', 
+         'Новая жалоба от ' || $2 || ': ' || $3, $4)`,
+        [
+          admin.id,
+          reporterName,
+          reason,
+          JSON.stringify({ report_id: result.rows[0].id, reason, description: description || null })
+        ]
+      );
+    }
+
     res.json({
       report: result.rows[0],
       message: 'Жалоба отправлена на рассмотрение'

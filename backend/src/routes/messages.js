@@ -65,13 +65,25 @@ router.post('/', authenticate, async (req, res) => {
       [senderId, receiver_id, order_id || null, text]
     );
 
+    // Проверяем роль получателя для определения типа уведомления
+    const receiverRoleResult = await db.query('SELECT role FROM users WHERE id = $1', [receiver_id]);
+    const receiverRole = receiverRoleResult.rows[0]?.role;
+    const senderRoleResult = await db.query('SELECT role FROM users WHERE id = $1', [senderId]);
+    const senderRole = senderRoleResult.rows[0]?.role;
+
+    // Если получатель - админ/суперадмин и отправитель - продавец, это сообщение от партнера
+    const notificationType = (receiverRole === 'admin' || receiverRole === 'superadmin') && 
+                            (senderRole === 'seller' || senderRole === 'admin') 
+                            ? 'partner_message' : 'message';
+
     // Создаем уведомление получателю
     await db.query(
       `INSERT INTO notifications (user_id, type, title, message, data)
-       VALUES ($1, 'message', 'Новое сообщение', $2, $3)`,
+       VALUES ($1, $2, 'Новое сообщение', $3, $4)`,
       [
         receiver_id,
-        `Новое сообщение от ${req.user.first_name || req.user.username}`,
+        notificationType,
+        `Новое сообщение от ${req.user.first_name || req.user.username || 'пользователя'}`,
         JSON.stringify({ sender_id: senderId, message_id: result.rows[0].id, order_id })
       ]
     );

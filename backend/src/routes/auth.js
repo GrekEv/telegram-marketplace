@@ -66,6 +66,28 @@ router.post('/telegram', async (req, res) => {
         [id, username || null, first_name || null, last_name || null, photo_url || null, userRole]
       );
       user = result.rows[0];
+
+      // Уведомляем админов о новой регистрации (только для обычных пользователей)
+      if (userRole === 'user') {
+        const adminsResult = await db.query(
+          "SELECT id FROM users WHERE role IN ('admin', 'superadmin')"
+        );
+
+        const userName = username || first_name || `ID: ${id}`;
+        
+        for (const admin of adminsResult.rows) {
+          await db.query(
+            `INSERT INTO notifications (user_id, type, title, message, data)
+             VALUES ($1, 'user_registration', 'Новый пользователь', 
+             'Зарегистрирован новый пользователь: ' || $2, $3)`,
+            [
+              admin.id,
+              userName,
+              JSON.stringify({ user_id: user.id, telegram_id: id, username: username || null })
+            ]
+          );
+        }
+      }
     } else {
       // Обновляем данные пользователя, сохраняя роль админа если есть
       const existingRole = userResult.rows[0].role;
