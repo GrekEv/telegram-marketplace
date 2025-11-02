@@ -9,6 +9,7 @@ import SellerProfile from './pages/SellerProfile';
 import MyShop from './pages/MyShop';
 import Profile from './pages/Profile';
 import Login from './pages/Login';
+import Notifications from './pages/Notifications';
 
 function App() {
   const [isReady, setIsReady] = useState(false);
@@ -44,6 +45,7 @@ function App() {
             <Route path="/my-shop" element={<MyShop />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/notifications" element={<Notifications />} />
           </Routes>
         </div>
       </Router>

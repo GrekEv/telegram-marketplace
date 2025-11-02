@@ -1,5 +1,14 @@
 .notification-container {
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  color: inherit;
+}
+
+.notification-container.active .notification-icon {
+  color: var(--primary);
 }
 
 .notification-btn {
