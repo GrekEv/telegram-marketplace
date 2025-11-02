@@ -27,7 +27,9 @@
    - Выполните: `psql -h хост -U postgres -d railway -f backend/src/database/schema.sql`
 7. Добавьте тестовые товары:
    - Выполните: `psql -h хост -U postgres -d railway -f backend/src/database/seed_test_data.sql`
-8. Получите URL backend: Settings → Generate Domain
+8. Добавьте администраторов:
+   - Выполните: `psql -h хост -U postgres -d railway -f backend/src/database/seed_admins.sql`
+9. Получите URL backend: Settings → Generate Domain
 
 ## Frontend на Vercel
 
