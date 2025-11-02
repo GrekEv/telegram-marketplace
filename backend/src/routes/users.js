@@ -39,7 +39,7 @@ router.get('/feed', authenticate, async (req, res) => {
         CASE 
           WHEN p.is_promoted = true AND p.promotion_until > NOW() THEN 'promoted'
           WHEN sub.id IS NOT NULL THEN 'subscription'
-          WHEN p.purchases_count > 10 OR p.rating > 4.0 OR p.likes_count > 50 THEN 'popular'
+          WHEN p.purchases_count > 10 OR p.likes_count > 50 THEN 'popular'
           ELSE 'recommended'
         END as feed_category,
         CASE
