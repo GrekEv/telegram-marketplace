@@ -210,7 +210,7 @@ router.get('/support-requests', authenticate, async (req, res) => {
 
     // Получаем все чаты, где пользователи писали админу (support requests)
     const result = await db.query(
-      `SELECT DISTINCT ON (m.sender_id)
+      `SELECT 
         m.sender_id as user_id,
         u.username,
         u.first_name,
@@ -224,8 +224,13 @@ router.get('/support-requests', authenticate, async (req, res) => {
        FROM messages m
        INNER JOIN users u ON m.sender_id = u.id
        WHERE m.receiver_id = $1 AND u.role = 'user'
+       AND m.created_at = (
+         SELECT MAX(created_at) 
+         FROM messages m2 
+         WHERE m2.sender_id = m.sender_id AND m2.receiver_id = $1
+       )
        GROUP BY m.sender_id, u.id, m.text, m.created_at, m.is_read
-       ORDER BY m.sender_id, m.created_at DESC`,
+       ORDER BY m.created_at DESC`,
       [currentUserId]
     );
 
