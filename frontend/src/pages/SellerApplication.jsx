@@ -43,14 +43,17 @@ const SellerApplication = () => {
 
     try {
       setProcessing(true);
-      await api.post(`/admin/sellers/${sellerId}/approve`, {
+      const response = await api.post(`/admin/sellers/${sellerId}/approve`, {
         action: 'approve'
       });
+      if (response.data?.message) {
+        alert(response.data.message);
+      }
       navigate('/notifications', { state: { tab: 'seller_applications' } });
     } catch (error) {
       console.error('Ошибка одобрения заявки:', error);
-      alert('Не удалось одобрить заявку');
-    } finally {
+      const errorMessage = error.response?.data?.error || error.response?.data?.details || 'Не удалось одобрить заявку';
+      alert(errorMessage);
       setProcessing(false);
     }
   };
@@ -67,16 +70,19 @@ const SellerApplication = () => {
 
     try {
       setProcessing(true);
-      await api.post(`/admin/sellers/${sellerId}/approve`, {
+      const response = await api.post(`/admin/sellers/${sellerId}/approve`, {
         action: 'reject',
         rejection_reason: rejectionReason.trim(),
         rejection_advice: rejectionAdvice.trim() || null
       });
+      if (response.data?.message) {
+        alert(response.data.message);
+      }
       navigate('/notifications', { state: { tab: 'seller_applications' } });
     } catch (error) {
       console.error('Ошибка отклонения заявки:', error);
-      alert(error.response?.data?.error || 'Не удалось отклонить заявку');
-    } finally {
+      const errorMessage = error.response?.data?.error || error.response?.data?.details || 'Не удалось отклонить заявку';
+      alert(errorMessage);
       setProcessing(false);
       setShowRejectModal(false);
     }

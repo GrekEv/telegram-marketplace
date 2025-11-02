@@ -76,22 +76,33 @@ router.post('/apply', authenticate, async (req, res) => {
     );
 
     // Уведомляем всех админов о новой заявке
-    const adminsResult = await db.query(
-      "SELECT id FROM users WHERE role IN ('admin', 'superadmin')"
-    );
-
-    for (const admin of adminsResult.rows) {
-      await db.query(
-        `INSERT INTO notifications (user_id, type, title, message, data)
-         VALUES ($1, 'seller_application', 'Новая заявка на продавца', 
-         'Новая заявка от пользователя: ' || $2 || '. Магазин: ' || $3, $4)`,
-        [
-          admin.id,
-          req.user.username || req.user.first_name || 'Пользователь',
-          shop_name,
-          JSON.stringify({ seller_id: result.rows[0].id, user_id: req.user.id })
-        ]
+    try {
+      const adminsResult = await db.query(
+        "SELECT id FROM users WHERE role IN ('admin', 'superadmin')"
       );
+
+      for (const admin of adminsResult.rows) {
+        try {
+          await db.query(
+            `INSERT INTO notifications (user_id, type, title, message, data)
+             VALUES ($1, 'seller_application', 'Новая заявка на продавца', 
+             'Новая заявка от пользователя: ' || $2 || '. Магазин: ' || $3, $4)`,
+            [
+              admin.id,
+              req.user.username || req.user.first_name || 'Пользователь',
+              shop_name,
+              JSON.stringify({ seller_id: result.rows[0].id, user_id: req.user.id })
+            ]
+          );
+        } catch (notifError) {
+          console.error(`Ошибка отправки уведомления админу ${admin.id}:`, notifError);
+          // Продолжаем для других админов
+        }
+      }
+      console.log(`Уведомления отправлены ${adminsResult.rows.length} админам`);
+    } catch (adminsError) {
+      console.error('Ошибка получения списка админов для уведомлений:', adminsError);
+      // Не прерываем выполнение, заявка уже создана
     }
 
     res.json({
@@ -100,7 +111,10 @@ router.post('/apply', authenticate, async (req, res) => {
     });
   } catch (error) {
     console.error('Ошибка подачи заявки:', error);
-    res.status(500).json({ error: 'Ошибка подачи заявки' });
+    res.status(500).json({ 
+      error: 'Ошибка подачи заявки',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 

@@ -85,46 +85,65 @@ router.post('/sellers/:sellerId/approve', requireRole('admin', 'superadmin'), as
       }
     }
 
-    // Уведомляем продавца
-    await db.query(
-      `INSERT INTO notifications (user_id, type, title, message, data)
-       VALUES ($1, 'seller_application', 
-       $2, 
-       $3,
-       $4)`,
-      [
-        result.rows[0].user_id,
-        action === 'approve' ? 'Заявка одобрена' : 'Заявка отклонена',
-        messageText,
-        JSON.stringify({ 
-          seller_id: sellerId, 
-          status: result.rows[0].status,
-          rejection_reason: rejection_reason || null,
-          rejection_advice: rejection_advice || null
-        })
-      ]
-    );
+    // Уведомляем продавца - важно, чтобы это всегда выполнялось
+    try {
+      await db.query(
+        `INSERT INTO notifications (user_id, type, title, message, data)
+         VALUES ($1, 'seller_application', 
+         $2, 
+         $3,
+         $4)`,
+        [
+          result.rows[0].user_id,
+          action === 'approve' ? 'Заявка одобрена' : 'Заявка отклонена',
+          messageText,
+          JSON.stringify({ 
+            seller_id: sellerId, 
+            status: result.rows[0].status,
+            rejection_reason: rejection_reason || null,
+            rejection_advice: rejection_advice || null
+          })
+        ]
+      );
+      console.log(`Уведомление отправлено пользователю ${result.rows[0].user_id}`);
+    } catch (notifError) {
+      console.error('Ошибка создания уведомления:', notifError);
+      // Не прерываем выполнение, но логируем ошибку
+    }
 
-    // Аудит лог
-    await db.query(
-      `INSERT INTO audit_logs (admin_id, action, entity_type, entity_id, changes)
-       VALUES ($1, $2, 'seller', $3, $4)`,
-      [
-        req.user.id,
-        action === 'approve' ? 'seller_approved' : 'seller_rejected',
-        sellerId,
-        JSON.stringify({ 
-          status: result.rows[0].status,
-          rejection_reason: rejection_reason || null,
-          rejection_advice: rejection_advice || null
-        })
-      ]
-    );
+    // Аудит лог (не критично, если не запишется)
+    try {
+      await db.query(
+        `INSERT INTO audit_logs (admin_id, action, entity_type, entity_id, changes)
+         VALUES ($1, $2, 'seller', $3, $4)`,
+        [
+          req.user.id,
+          action === 'approve' ? 'seller_approved' : 'seller_rejected',
+          sellerId,
+          JSON.stringify({ 
+            status: result.rows[0].status,
+            rejection_reason: rejection_reason || null,
+            rejection_advice: rejection_advice || null
+          })
+        ]
+      );
+    } catch (auditError) {
+      console.error('Ошибка записи аудит лога:', auditError);
+      // Не критично, продолжаем выполнение
+    }
 
-    res.json({ seller: result.rows[0] });
+    res.json({ 
+      seller: result.rows[0],
+      message: action === 'approve' 
+        ? 'Заявка одобрена, продавец получил уведомление' 
+        : 'Заявка отклонена, продавец получил уведомление'
+    });
   } catch (error) {
     console.error('Ошибка обработки заявки:', error);
-    res.status(500).json({ error: 'Ошибка обработки заявки' });
+    res.status(500).json({ 
+      error: 'Ошибка обработки заявки',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 

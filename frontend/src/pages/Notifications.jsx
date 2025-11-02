@@ -110,6 +110,9 @@ const Notifications = () => {
     }
     try {
       await api.put(`/notifications/${id}/read`);
+      setAllNotifications(prev => 
+        prev.map(n => n.id === id ? { ...n, is_read: true } : n)
+      );
       setNotifications(prev => 
         prev.map(n => n.id === id ? { ...n, is_read: true } : n)
       );
