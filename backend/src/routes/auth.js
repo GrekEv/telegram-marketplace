@@ -128,6 +128,32 @@ router.post('/telegram', async (req, res) => {
   }
 });
 
+// Получить пользователя по ID (для админов)
+router.get('/user/:userId', authenticate, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Проверяем права доступа (только админ/суперадмин или сам пользователь)
+    if (req.user.role !== 'admin' && req.user.role !== 'superadmin' && req.user.id !== userId) {
+      return res.status(403).json({ error: 'Доступ запрещен' });
+    }
+
+    const userResult = await db.query(
+      'SELECT id, telegram_id, username, first_name, last_name, photo_url, role, email, phone, address, city, postal_code FROM users WHERE id = $1',
+      [userId]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Пользователь не найден' });
+    }
+
+    res.json({ user: userResult.rows[0] });
+  } catch (error) {
+    console.error('Ошибка получения пользователя:', error);
+    res.status(500).json({ error: 'Ошибка получения пользователя' });
+  }
+});
+
 // Получить текущего пользователя
 router.get('/me', authenticate, async (req, res) => {
   try {

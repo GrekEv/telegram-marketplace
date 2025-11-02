@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { LanguageProvider } from './contexts/LanguageContext';
 import { initTelegramWebApp, isInTelegram } from './utils/telegram';
 import Header from './components/Header';
 import Feed from './pages/Feed';
@@ -23,6 +24,8 @@ import Search from './pages/Search';
 import AIChat from './pages/AIChat';
 import Help from './pages/Help';
 import Support from './pages/Support';
+import SupportRequests from './pages/SupportRequests';
+import AdminSupportChat from './pages/AdminSupportChat';
 import BottomNavigation from './components/BottomNavigation';
 
 function App() {
@@ -48,11 +51,12 @@ function App() {
   }
 
   return (
-    <AuthProvider>
-      <Router>
-        <div className="app">
-          <Header />
-          <Routes>
+    <LanguageProvider>
+      <AuthProvider>
+        <Router>
+          <div className="app">
+            <Header />
+            <Routes>
             <Route path="/" element={<Feed />} />
             <Route path="/product/:id" element={<ProductDetail />} />
             <Route path="/seller/:id" element={<SellerProfile />} />
@@ -73,11 +77,14 @@ function App() {
             <Route path="/admin/seller-application/:sellerId" element={<SellerApplication />} />
             <Route path="/admin/products" element={<ProductModerationList />} />
             <Route path="/admin/product-moderation/:productId" element={<ProductModeration />} />
+            <Route path="/admin/support-requests" element={<SupportRequests />} />
+            <Route path="/admin/support-chat/:userId" element={<AdminSupportChat />} />
           </Routes>
           <BottomNavigation />
         </div>
       </Router>
-    </AuthProvider>
+      </AuthProvider>
+    </LanguageProvider>
   );
 }
 

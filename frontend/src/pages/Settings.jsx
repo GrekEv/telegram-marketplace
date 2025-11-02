@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import api from '../utils/api';
 import TelegramBackButton from '../components/TelegramBackButton';
 import Modal from '../components/Modal';
@@ -8,6 +9,7 @@ import './Settings.css';
 
 const Settings = () => {
   const { user, updateUser } = useAuth();
+  const { language, setLanguage, t } = useLanguage();
   const navigate = useNavigate();
   const [settings, setSettings] = useState({
     notifications: true,
@@ -26,6 +28,11 @@ const Settings = () => {
     const savedEmailNotifications = localStorage.getItem('emailNotifications') === 'true';
     const savedLanguage = localStorage.getItem('language') || 'ru';
     const savedCurrency = localStorage.getItem('currency') || 'RUB';
+
+    // Синхронизируем язык с контекстом
+    if (savedLanguage !== language) {
+      setLanguage(savedLanguage);
+    }
 
     setSettings({
       notifications: savedNotifications,
@@ -84,17 +91,22 @@ const Settings = () => {
       [key]: value
     }));
     localStorage.setItem(key, value);
+    
+    // При изменении языка обновляем контекст
+    if (key === 'language') {
+      setLanguage(value);
+    }
   };
 
   const handleEmailSubmit = async () => {
     if (!emailInput.trim()) {
-      alert('Введите email адрес');
+      alert(t('enterEmail'));
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(emailInput.trim())) {
-      alert('Введите корректный email адрес');
+      alert(t('enterValidEmail'));
       return;
     }
 
@@ -113,17 +125,17 @@ const Settings = () => {
       }));
       localStorage.setItem('emailNotifications', 'true');
       setShowEmailModal(false);
-      alert('Email успешно сохранен и уведомления включены');
+      alert(t('emailSaved'));
     } catch (error) {
       console.error('Ошибка сохранения email:', error);
-      alert('Не удалось сохранить email. Попробуйте позже.');
+      alert(t('emailSaveError'));
     }
   };
 
   if (!user) {
     return (
       <div className="settings-page">
-        <div className="error-state">Необходима авторизация</div>
+        <div className="error-state">{t('authRequired')}</div>
       </div>
     );
   }
@@ -133,34 +145,34 @@ const Settings = () => {
       <TelegramBackButton />
       
       <div className="settings-header">
-        <h1>Настройки</h1>
+        <h1>{t('settings')}</h1>
       </div>
 
       <div className="settings-content">
         <div className="settings-section">
-          <h2>Профиль</h2>
+          <h2>{t('profile')}</h2>
           <Link to="/edit-profile" className="settings-item">
             <span className="settings-icon">👤</span>
-            <span className="settings-label">Редактировать профиль</span>
+            <span className="settings-label">{t('editProfile')}</span>
             <span className="settings-arrow">→</span>
           </Link>
           <Link to="/orders" className="settings-item">
             <span className="settings-icon">📦</span>
-            <span className="settings-label">Мои заказы</span>
+            <span className="settings-label">{t('myOrders')}</span>
             <span className="settings-arrow">→</span>
           </Link>
           <Link to="/favorites" className="settings-item">
             <span className="settings-icon">❤️</span>
-            <span className="settings-label">Избранное</span>
+            <span className="settings-label">{t('favorites')}</span>
             <span className="settings-arrow">→</span>
           </Link>
         </div>
 
         <div className="settings-section">
-          <h2>Уведомления</h2>
+          <h2>{t('notifications')}</h2>
           <div className="settings-item">
             <span className="settings-icon">🔔</span>
-            <span className="settings-label">Push-уведомления</span>
+            <span className="settings-label">{t('pushNotifications')}</span>
             <label className="toggle-switch">
               <input
                 type="checkbox"
@@ -172,7 +184,7 @@ const Settings = () => {
           </div>
           <div className="settings-item">
             <span className="settings-icon">📧</span>
-            <span className="settings-label">Email-уведомления</span>
+            <span className="settings-label">{t('emailNotifications')}</span>
             <label className="toggle-switch">
               <input
                 type="checkbox"
@@ -188,10 +200,10 @@ const Settings = () => {
         </div>
 
         <div className="settings-section">
-          <h2>Внешний вид</h2>
+          <h2>{t('appearance')}</h2>
           <div className="settings-item">
             <span className="settings-icon">🌙</span>
-            <span className="settings-label">Темная тема</span>
+            <span className="settings-label">{t('darkTheme')}</span>
             <label className="toggle-switch">
               <input
                 type="checkbox"
@@ -204,10 +216,10 @@ const Settings = () => {
         </div>
 
         <div className="settings-section">
-          <h2>Язык и регион</h2>
+          <h2>{t('languageAndRegion')}</h2>
           <div className="settings-item">
             <span className="settings-icon">🌍</span>
-            <span className="settings-label">Язык</span>
+            <span className="settings-label">{t('language')}</span>
             <select
               value={settings.language}
               onChange={(e) => handleSelect('language', e.target.value)}
@@ -219,7 +231,7 @@ const Settings = () => {
           </div>
           <div className="settings-item">
             <span className="settings-icon">💰</span>
-            <span className="settings-label">Валюта</span>
+            <span className="settings-label">{t('currency')}</span>
             <select
               value={settings.currency}
               onChange={(e) => handleSelect('currency', e.target.value)}
@@ -233,30 +245,35 @@ const Settings = () => {
         </div>
 
         <div className="settings-section">
-          <h2>Помощь</h2>
+          <h2>{t('help')}</h2>
           <Link to="/help" className="settings-item">
             <span className="settings-icon">❓</span>
-            <span className="settings-label">Справка</span>
+            <span className="settings-label">{t('help')}</span>
             <span className="settings-arrow">→</span>
           </Link>
           <Link to="/support" className="settings-item">
             <span className="settings-icon">📞</span>
-            <span className="settings-label">Связаться с поддержкой</span>
+            <span className="settings-label">{t('contactSupport')}</span>
             <span className="settings-arrow">→</span>
           </Link>
         </div>
 
         {(user.role === 'admin' || user.role === 'superadmin') && (
           <div className="settings-section">
-            <h2>Администрирование</h2>
+            <h2>{t('administration')}</h2>
             <Link to="/admin/products" className="settings-item">
               <span className="settings-icon">📦</span>
-              <span className="settings-label">Модерация товаров</span>
+              <span className="settings-label">{t('moderation')}</span>
               <span className="settings-arrow">→</span>
             </Link>
             <Link to="/notifications" className="settings-item">
               <span className="settings-icon">🔔</span>
-              <span className="settings-label">Уведомления</span>
+              <span className="settings-label">{t('adminNotifications')}</span>
+              <span className="settings-arrow">→</span>
+            </Link>
+            <Link to="/admin/support-requests" className="settings-item">
+              <span className="settings-icon">💬</span>
+              <span className="settings-label">{t('supportRequests')}</span>
               <span className="settings-arrow">→</span>
             </Link>
           </div>
@@ -266,11 +283,11 @@ const Settings = () => {
       <Modal
         isOpen={showEmailModal}
         onClose={() => setShowEmailModal(false)}
-        title="Введите email адрес"
+        title={t('enterEmail')}
         size="small"
       >
         <div className="email-modal-content">
-          <p>Для включения email уведомлений необходимо указать ваш email адрес.</p>
+          <p>{t('enterEmailText')}</p>
           <input
             type="email"
             placeholder="example@email.com"
@@ -285,14 +302,14 @@ const Settings = () => {
               className="btn-secondary"
               onClick={() => setShowEmailModal(false)}
             >
-              Отмена
+              {t('cancel')}
             </button>
             <button
               type="button"
               className="btn-primary"
               onClick={handleEmailSubmit}
             >
-              Сохранить
+              {t('save')}
             </button>
           </div>
         </div>

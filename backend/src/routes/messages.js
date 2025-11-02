@@ -71,18 +71,25 @@ router.post('/', authenticate, async (req, res) => {
     const senderRoleResult = await db.query('SELECT role FROM users WHERE id = $1', [senderId]);
     const senderRole = senderRoleResult.rows[0]?.role;
 
-    // Если получатель - админ/суперадмин и отправитель - продавец, это сообщение от партнера
-    const notificationType = (receiverRole === 'admin' || receiverRole === 'superadmin') && 
-                            (senderRole === 'seller' || senderRole === 'admin') 
-                            ? 'partner_message' : 'message';
+    // Определяем тип уведомления
+    let notificationType = 'message';
+    if (receiverRole === 'admin' || receiverRole === 'superadmin') {
+      // Если получатель - админ, и отправитель - обычный пользователь, это запрос в поддержку
+      if (senderRole === 'user') {
+        notificationType = 'support_message';
+      } else if (senderRole === 'seller' || senderRole === 'admin') {
+        notificationType = 'partner_message';
+      }
+    }
 
     // Создаем уведомление получателю
     await db.query(
       `INSERT INTO notifications (user_id, type, title, message, data)
-       VALUES ($1, $2, 'Новое сообщение', $3, $4)`,
+       VALUES ($1, $2, $3, $4, $5)`,
       [
         receiver_id,
         notificationType,
+        notificationType === 'support_message' ? 'Новый запрос в поддержку' : 'Новое сообщение',
         `Новое сообщение от ${req.user.first_name || req.user.username || 'пользователя'}`,
         JSON.stringify({ sender_id: senderId, message_id: result.rows[0].id, order_id })
       ]
@@ -187,6 +194,45 @@ router.put('/read/:userId', authenticate, async (req, res) => {
   } catch (error) {
     console.error('Ошибка отметки сообщений:', error);
     res.status(500).json({ error: 'Ошибка отметки сообщений' });
+  }
+});
+
+// Получить список запросов поддержки (для админа)
+router.get('/support-requests', authenticate, async (req, res) => {
+  try {
+    const currentUserId = req.user.id;
+    
+    // Проверяем, что пользователь - админ или суперадмин
+    const userResult = await db.query('SELECT role FROM users WHERE id = $1', [currentUserId]);
+    if (!userResult.rows[0] || (userResult.rows[0].role !== 'admin' && userResult.rows[0].role !== 'superadmin')) {
+      return res.status(403).json({ error: 'Доступ запрещен' });
+    }
+
+    // Получаем все чаты, где пользователи писали админу (support requests)
+    const result = await db.query(
+      `SELECT DISTINCT ON (m.sender_id)
+        m.sender_id as user_id,
+        u.username,
+        u.first_name,
+        u.last_name,
+        u.photo_url,
+        u.role as user_role,
+        m.text as last_message,
+        m.created_at as last_message_time,
+        m.is_read,
+        COUNT(*) FILTER (WHERE m.receiver_id = $1 AND m.is_read = false) as unread_count
+       FROM messages m
+       INNER JOIN users u ON m.sender_id = u.id
+       WHERE m.receiver_id = $1 AND u.role = 'user'
+       GROUP BY m.sender_id, u.id, m.text, m.created_at, m.is_read
+       ORDER BY m.sender_id, m.created_at DESC`,
+      [currentUserId]
+    );
+
+    res.json({ requests: result.rows });
+  } catch (error) {
+    console.error('Ошибка получения запросов поддержки:', error);
+    res.status(500).json({ error: 'Ошибка получения запросов поддержки' });
   }
 });
 
