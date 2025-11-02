@@ -82,9 +82,22 @@
 }
 
 /* Мобильная версия */
-@media (max-width: 480px) {
+@media (max-width: 768px) {
+  .header {
+    padding: var(--spacing-xs) var(--spacing-sm);
+  }
+  
   .logo-text {
     display: none;
+  }
+  
+  .logo {
+    font-size: 20px;
+    min-width: 30px;
+  }
+  
+  .nav {
+    gap: 2px;
   }
   
   .nav-text {
@@ -92,11 +105,30 @@
   }
   
   .nav-link {
-    min-width: 44px;
-    padding: var(--spacing-xs);
+    min-width: 36px;
+    padding: 6px 4px;
   }
   
   .nav-icon {
-    font-size: 24px;
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 400px) {
+  .header {
+    padding: 4px 8px;
+  }
+  
+  .nav {
+    gap: 0;
+  }
+  
+  .nav-link {
+    min-width: 32px;
+    padding: 4px 2px;
+  }
+  
+  .nav-icon {
+    font-size: 18px;
   }
 }

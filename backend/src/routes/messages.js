@@ -95,6 +95,53 @@ router.post('/', authenticate, async (req, res) => {
       ]
     );
 
+    // Отправляем email-дубликат, если это запрос в поддержку
+    if (notificationType === 'support_message') {
+      try {
+        const emailData = {
+          to: 'kirucha2003@gmail.com',
+          subject: `Запрос в поддержку от ${req.user.first_name || req.user.username || 'пользователя'}`,
+          text: `
+Новый запрос в поддержку!
+
+От: ${req.user.first_name || ''} ${req.user.last_name || ''} (@${req.user.username || 'неизвестно'})
+Telegram ID: ${req.user.telegram_id}
+User ID: ${senderId}
+
+Сообщение:
+${text}
+
+---
+Ответить можно через админ-панель: https://telegram-marketplace-production-c6e5.up.railway.app/admin/support-chat/${senderId}
+          `.trim()
+        };
+
+        // Используем fetch для отправки через Resend API или другой email сервис
+        // Для простоты используем встроенный console.log, но в production нужен реальный email сервис
+        console.log('📧 Email notification:', emailData);
+        
+        // Если есть RESEND_API_KEY, отправляем через Resend
+        if (process.env.RESEND_API_KEY) {
+          await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              from: 'support@telegram-marketplace.com',
+              to: emailData.to,
+              subject: emailData.subject,
+              text: emailData.text
+            })
+          });
+        }
+      } catch (emailError) {
+        console.error('Ошибка отправки email:', emailError);
+        // Не блокируем основной процесс, если email не отправился
+      }
+    }
+
     res.json({ message: result.rows[0] });
   } catch (error) {
     console.error('Ошибка отправки сообщения:', error);
