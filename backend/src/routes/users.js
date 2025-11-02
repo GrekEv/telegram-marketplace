@@ -7,7 +7,7 @@ const router = express.Router();
 // Получить ID администратора для поддержки
 router.get('/support-admin', authenticate, async (req, res) => {
   try {
-    // Получаем первого доступного админа или суперадмина
+    // Получаем первого доступного суперадмина, а если нет - то админа
     const result = await db.query(
       `SELECT id FROM users 
        WHERE role IN ('admin', 'superadmin') AND is_active = true
