@@ -48,24 +48,35 @@ router.post('/telegram', async (req, res) => {
     );
 
     let user;
+    
+    // Определяем роль на основе username для администраторов
+    let userRole = 'user';
+    if (username === 'iskovs') {
+      userRole = 'admin';
+    } else if (username === 'kirilldeniushkin') {
+      userRole = 'superadmin';
+    }
 
     if (userResult.rows.length === 0) {
       // Создаем нового пользователя
       const result = await db.query(
         `INSERT INTO users (telegram_id, username, first_name, last_name, photo_url, role)
-         VALUES ($1, $2, $3, $4, $5, 'user')
+         VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING *`,
-        [id, username || null, first_name || null, last_name || null, photo_url || null]
+        [id, username || null, first_name || null, last_name || null, photo_url || null, userRole]
       );
       user = result.rows[0];
     } else {
-      // Обновляем данные пользователя
+      // Обновляем данные пользователя, сохраняя роль админа если есть
+      const existingRole = userResult.rows[0].role;
+      const finalRole = (existingRole === 'admin' || existingRole === 'superadmin') ? existingRole : userRole;
+      
       const result = await db.query(
         `UPDATE users 
-         SET username = $1, first_name = $2, last_name = $3, photo_url = $4, updated_at = CURRENT_TIMESTAMP
-         WHERE telegram_id = $5
+         SET username = $1, first_name = $2, last_name = $3, photo_url = $4, role = $5, updated_at = CURRENT_TIMESTAMP
+         WHERE telegram_id = $6
          RETURNING *`,
-        [username || null, first_name || null, last_name || null, photo_url || null, id]
+        [username || null, first_name || null, last_name || null, photo_url || null, finalRole, id]
       );
       user = result.rows[0];
     }
