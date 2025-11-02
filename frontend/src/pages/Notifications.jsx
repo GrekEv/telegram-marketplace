@@ -7,8 +7,10 @@ import './Notifications.css';
 const Notifications = () => {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState([]);
+  const [allNotifications, setAllNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [activeTab, setActiveTab] = useState('reports');
 
   useEffect(() => {
     if (user) {
@@ -18,19 +20,46 @@ const Notifications = () => {
     }
   }, [user]);
 
+  useEffect(() => {
+    filterNotificationsByTab();
+  }, [activeTab, allNotifications]);
+
   const fetchNotifications = async () => {
     try {
       setLoading(true);
       const response = await api.get('/notifications', {
         params: { limit: 100 }
       });
-      setNotifications(response.data.notifications || []);
+      setAllNotifications(response.data.notifications || []);
       setUnreadCount(response.data.unread || 0);
     } catch (error) {
       console.error('Ошибка загрузки уведомлений:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const filterNotificationsByTab = () => {
+    let filtered = [];
+    
+    switch (activeTab) {
+      case 'reports':
+        filtered = allNotifications.filter(n => n.type === 'report' || n.type?.includes('report'));
+        break;
+      case 'seller_applications':
+        filtered = allNotifications.filter(n => n.type === 'seller_application');
+        break;
+      case 'user_registrations':
+        filtered = allNotifications.filter(n => n.type === 'user_registration' || (n.type === 'new_user' && n.title?.toLowerCase().includes('пользователь')));
+        break;
+      case 'partner_messages':
+        filtered = allNotifications.filter(n => n.type === 'message' || n.type === 'partner_message' || n.type?.includes('message'));
+        break;
+      default:
+        filtered = allNotifications;
+    }
+    
+    setNotifications(filtered);
   };
 
   const handleMarkAsRead = async (id) => {
@@ -47,9 +76,16 @@ const Notifications = () => {
 
   const handleMarkAllAsRead = async () => {
     try {
-      await api.put('/notifications/read-all');
+      const unreadIds = notifications.filter(n => !n.is_read).map(n => n.id);
+      for (const id of unreadIds) {
+        await api.put(`/notifications/${id}/read`);
+      }
+      setAllNotifications(prev => 
+        prev.map(n => unreadIds.includes(n.id) ? { ...n, is_read: true } : n)
+      );
       setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-      setUnreadCount(0);
+      const newUnreadCount = allNotifications.filter(n => !unreadIds.includes(n.id) && !n.is_read).length;
+      setUnreadCount(newUnreadCount);
     } catch (error) {
       console.error('Ошибка отметки всех уведомлений:', error);
     }
@@ -75,13 +111,32 @@ const Notifications = () => {
     );
   }
 
+  const tabs = [
+    { id: 'reports', label: 'Жалобы', icon: '⚠️' },
+    { id: 'seller_applications', label: 'Регистрация магазина', icon: '🏪' },
+    { id: 'user_registrations', label: 'Регистрации пользователей', icon: '👥' },
+    { id: 'partner_messages', label: 'Сообщения от партнеров', icon: '💬' }
+  ];
+
+  const getUnreadCountForTab = (tabId) => {
+    return notifications.filter(n => !n.is_read && getTabForNotification(n.type) === tabId).length;
+  };
+
+  const getTabForNotification = (type) => {
+    if (type === 'report' || type?.includes('report')) return 'reports';
+    if (type === 'seller_application') return 'seller_applications';
+    if (type === 'user_registration' || type === 'new_user') return 'user_registrations';
+    if (type === 'message' || type === 'partner_message' || type?.includes('message')) return 'partner_messages';
+    return 'reports';
+  };
+
   return (
     <div className="notifications-page fade-in">
       <TelegramBackButton />
       
       <div className="notifications-header">
         <h1>Уведомления</h1>
-        {unreadCount > 0 && (
+        {unreadCount > 0 && notifications.length > 0 && (
           <button 
             onClick={handleMarkAllAsRead}
             className="mark-all-read-btn"
@@ -89,6 +144,25 @@ const Notifications = () => {
             Отметить все прочитанным
           </button>
         )}
+      </div>
+
+      <div className="notifications-tabs">
+        {tabs.map(tab => {
+          const tabUnreadCount = allNotifications.filter(n => !n.is_read && getTabForNotification(n.type) === tab.id).length;
+          return (
+            <button
+              key={tab.id}
+              className={`notification-tab ${activeTab === tab.id ? 'active' : ''}`}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              <span className="tab-icon">{tab.icon}</span>
+              <span className="tab-label">{tab.label}</span>
+              {tabUnreadCount > 0 && (
+                <span className="tab-badge">{tabUnreadCount > 99 ? '99+' : tabUnreadCount}</span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       <div className="notifications-list">
@@ -123,9 +197,19 @@ const Notifications = () => {
           ))
         ) : (
           <div className="no-notifications-state">
-            <div className="empty-icon">📭</div>
+            <div className="empty-icon">
+              {activeTab === 'reports' && '⚠️'}
+              {activeTab === 'seller_applications' && '🏪'}
+              {activeTab === 'user_registrations' && '👥'}
+              {activeTab === 'partner_messages' && '💬'}
+            </div>
             <h3>Нет уведомлений</h3>
-            <p>Здесь будут появляться уведомления о заявках, заказах и других событиях</p>
+            <p>
+              {activeTab === 'reports' && 'Жалобы на товары, продавцов или комментарии появятся здесь'}
+              {activeTab === 'seller_applications' && 'Заявки на регистрацию магазинов появятся здесь'}
+              {activeTab === 'user_registrations' && 'Уведомления о новых пользователях появятся здесь'}
+              {activeTab === 'partner_messages' && 'Сообщения от партнеров появятся здесь'}
+            </p>
           </div>
         )}
       </div>
