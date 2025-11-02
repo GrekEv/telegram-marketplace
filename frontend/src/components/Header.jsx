@@ -48,6 +48,14 @@ const Header = () => {
               <NotificationBadge />
               
               <Link 
+                to="/support" 
+                className={`nav-link ${isActive('/support') ? 'active' : ''}`}
+              >
+                <span className="nav-icon">💬</span>
+                <span className="nav-text">Поддержка</span>
+              </Link>
+              
+              <Link 
                 to="/ai-chat" 
                 className={`nav-link ${isActive('/ai-chat') ? 'active' : ''}`}
               >
