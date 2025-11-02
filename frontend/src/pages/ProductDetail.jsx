@@ -4,6 +4,7 @@ import api from '../utils/api';
 import BuyModal from '../components/BuyModal';
 import TelegramBackButton from '../components/TelegramBackButton';
 import { useHapticFeedback } from '../utils/hooks';
+import { openLink, isInTelegram } from '../utils/telegram';
 import './ProductDetail.css';
 
 const ProductDetail = () => {
@@ -13,6 +14,7 @@ const ProductDetail = () => {
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isLiked, setIsLiked] = useState(false);
+  const [sharesCount, setSharesCount] = useState(0);
   const [activeTab, setActiveTab] = useState('info'); // info, reviews, comments
   const [imageIndex, setImageIndex] = useState(0);
   const [showBuyModal, setShowBuyModal] = useState(false);
@@ -29,6 +31,7 @@ const ProductDetail = () => {
       setReviews(response.data.reviews || []);
       setComments(response.data.comments || []);
       setIsLiked(response.data.product.is_liked || false);
+      setSharesCount(response.data.product.shares_count || 0);
     } catch (error) {
       console.error('Ошибка загрузки товара:', error);
     } finally {
@@ -58,6 +61,50 @@ const ProductDetail = () => {
   const handleBuy = () => {
     haptic('medium');
     setShowBuyModal(true);
+  };
+
+  const handleShare = async () => {
+    try {
+      haptic('light');
+      
+      // Обновляем счетчик на сервере
+      const response = await api.post(`/products/${id}/share`);
+      setSharesCount(response.data.shares_count);
+      
+      // Формируем ссылку для шаринга
+      const baseUrl = window.location.origin;
+      const shareUrl = `${baseUrl}/product/${id}`;
+      const shareText = `Посмотрите на этот товар: ${product.name}\n${shareUrl}`;
+      
+      // Если в Telegram, пытаемся открыть через Telegram Share
+      if (isInTelegram()) {
+        // Используем tg:// для шаринга через Telegram
+        const telegramShareUrl = `https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(product.name)}`;
+        openLink(telegramShareUrl);
+      } else {
+        // Вне Telegram - используем Web Share API или копируем в буфер
+        if (navigator.share) {
+          navigator.share({
+            title: product.name,
+            text: shareText,
+            url: shareUrl
+          }).catch(() => {
+            // Fallback - копируем в буфер
+            navigator.clipboard.writeText(shareUrl);
+            alert('Ссылка скопирована в буфер обмена');
+          });
+        } else {
+          // Fallback - копируем в буфер
+          navigator.clipboard.writeText(shareUrl);
+          alert('Ссылка скопирована в буфер обмена');
+        }
+      }
+      
+      haptic('success');
+    } catch (error) {
+      console.error('Ошибка шаринга:', error);
+      haptic('error');
+    }
   };
 
   const handleAddToCart = () => {
@@ -184,6 +231,14 @@ const ProductDetail = () => {
           >
             <span className="btn-icon">❤️</span>
             <span>{product.likes_count || 0}</span>
+          </button>
+          
+          <button 
+            onClick={handleShare} 
+            className="action-btn share-btn"
+          >
+            <span className="btn-icon">📤</span>
+            <span>{sharesCount}</span>
           </button>
           
           <button 

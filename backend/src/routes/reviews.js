@@ -128,6 +128,10 @@ router.post('/', authenticate, upload.array('images', 5), async (req, res) => {
            WHERE id = $2`,
           [parseFloat(avgRatingResult.rows[0].avg_rating).toFixed(2), sellerId]
         );
+        
+        // Обновляем уровень продавца
+        const { updateSellerLevel } = await import('../utils/sellerLevel.js');
+        await updateSellerLevel(sellerId);
       }
     }
 

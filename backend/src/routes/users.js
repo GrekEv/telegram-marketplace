@@ -10,6 +10,24 @@ router.get('/feed', authenticate, async (req, res) => {
     const { category, limit = 50, offset = 0 } = req.query;
     const userId = req.user.id;
 
+    // Получаем историю поиска пользователя для рекомендаций
+    const searchHistoryResult = await db.query(
+      `SELECT DISTINCT query, filters FROM search_history 
+       WHERE user_id = $1 
+       ORDER BY created_at DESC 
+       LIMIT 10`,
+      [userId]
+    );
+
+    const userSearchTerms = searchHistoryResult.rows.map(sh => sh.query?.toLowerCase()).filter(Boolean);
+    const userFilters = searchHistoryResult.rows
+      .map(sh => sh.filters ? (typeof sh.filters === 'string' ? JSON.parse(sh.filters) : sh.filters) : {})
+      .reduce((acc, f) => {
+        if (f.category) acc.categories = (acc.categories || []).concat(f.category);
+        if (f.shop_name) acc.shop_names = (acc.shop_names || []).concat(f.shop_name);
+        return acc;
+      }, { categories: [], shop_names: [] });
+
     let query = `
       SELECT DISTINCT
         p.*,
@@ -21,16 +39,24 @@ router.get('/feed', authenticate, async (req, res) => {
         CASE 
           WHEN p.is_promoted = true AND p.promotion_until > NOW() THEN 'promoted'
           WHEN sub.id IS NOT NULL THEN 'subscription'
-          WHEN p.purchases_count > 10 THEN 'popular'
+          WHEN p.purchases_count > 10 OR p.rating > 4.0 OR p.likes_count > 50 THEN 'popular'
           ELSE 'recommended'
-        END as feed_category
+        END as feed_category,
+        CASE
+          WHEN p.is_promoted = true AND p.promotion_until > NOW() THEN 1000
+          WHEN sub.id IS NOT NULL THEN 800
+          WHEN p.purchases_count > 20 THEN 600
+          WHEN p.rating > 4.5 THEN 500
+          WHEN p.likes_count > 100 THEN 400
+          ELSE 100
+        END + COALESCE((SELECT COUNT(*) * 50 FROM reviews r WHERE r.product_id = p.id AND r.rating >= 4), 0) as relevance_score
       FROM products p
       INNER JOIN sellers s ON p.seller_id = s.id
       INNER JOIN users u ON s.user_id = u.id
       LEFT JOIN product_likes pl ON p.id = pl.product_id
       LEFT JOIN subscriptions sub ON sub.user_id = $1 AND sub.seller_id = s.id
-      WHERE p.status != 'archived'
-      GROUP BY p.id, s.id, u.id, sub.id
+      LEFT JOIN reviews rv ON rv.product_id = p.id
+      WHERE p.status = 'approved' AND s.status = 'approved'
     `;
 
     const params = [userId];
@@ -46,14 +72,16 @@ router.get('/feed', authenticate, async (req, res) => {
       }
     }
 
-    query += ` ORDER BY 
-      CASE feed_category
-        WHEN 'promoted' THEN 1
-        WHEN 'subscription' THEN 2
-        WHEN 'popular' THEN 3
-        ELSE 4
-      END,
-      p.created_at DESC
+    query += ` GROUP BY p.id, s.id, u.id, sub.id
+      ORDER BY 
+        CASE feed_category
+          WHEN 'promoted' THEN 1
+          WHEN 'subscription' THEN 2
+          WHEN 'popular' THEN 3
+          ELSE 4
+        END,
+        relevance_score DESC,
+        p.created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
 
     params.push(parseInt(limit), parseInt(offset));

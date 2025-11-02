@@ -28,6 +28,7 @@ router.get('/:productId', authenticate, async (req, res) => {
         u.first_name as seller_first_name,
         u.last_name as seller_last_name,
         COUNT(DISTINCT pl.id) as likes_count,
+        p.shares_count,
         CASE WHEN pl_user.id IS NOT NULL THEN true ELSE false END as is_liked,
         CASE WHEN sub.id IS NOT NULL THEN true ELSE false END as is_subscribed
       FROM products p
@@ -132,6 +133,28 @@ router.get('/seller/:sellerId', authenticate, async (req, res) => {
   } catch (error) {
     console.error('Ошибка получения профиля продавца:', error);
     res.status(500).json({ error: 'Ошибка получения профиля продавца' });
+  }
+});
+
+// Поделиться товаром (увеличить счетчик)
+router.post('/:productId/share', authenticate, async (req, res) => {
+  try {
+    const { productId } = req.params;
+
+    await db.query(
+      'UPDATE products SET shares_count = shares_count + 1 WHERE id = $1',
+      [productId]
+    );
+
+    const result = await db.query(
+      'SELECT shares_count FROM products WHERE id = $1',
+      [productId]
+    );
+
+    res.json({ shares_count: result.rows[0].shares_count });
+  } catch (error) {
+    console.error('Ошибка обновления счетчика репостов:', error);
+    res.status(500).json({ error: 'Ошибка обновления счетчика репостов' });
   }
 });
 

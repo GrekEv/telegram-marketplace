@@ -268,6 +268,31 @@ router.put('/:orderId/status', authenticate, async (req, res) => {
       params
     );
 
+    // Если заказ доставлен, обновляем статистику продавца и уровень
+    if (order_status === 'delivered') {
+      await db.query(
+        `UPDATE sellers 
+         SET total_sales = total_sales + 1
+         WHERE id = $1`,
+        [sellerId]
+      );
+      
+      // Обновляем уровень продавца
+      const { updateSellerLevel } = await import('../utils/sellerLevel.js');
+      await updateSellerLevel(sellerId);
+      
+      // Уведомление пользователю о завершении сделки (для запроса отзыва)
+      await db.query(
+        `INSERT INTO notifications (user_id, type, title, message, data)
+         VALUES ($1, 'review_request', 'Завершение сделки', 
+         'Как прошла сделка? Оставьте отзыв о товаре!', $2)`,
+        [
+          orderResult.rows[0].user_id,
+          JSON.stringify({ order_id: orderId, product_id: orderResult.rows[0].product_id })
+        ]
+      );
+    }
+
     // Уведомляем покупателя об изменении статуса
     await db.query(
       `INSERT INTO notifications (user_id, type, title, message, data)

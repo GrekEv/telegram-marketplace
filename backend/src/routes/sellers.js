@@ -144,16 +144,66 @@ router.get('/my-shop', authenticate, requireSeller, async (req, res) => {
       [seller.id]
     );
 
-    // Статистика
+    // Расширенная статистика
     const statsResult = await db.query(
       `SELECT 
         COUNT(*) as total_products,
         COUNT(CASE WHEN status = 'approved' THEN 1 END) as approved_products,
         COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_products,
         SUM(views_count) as total_views,
-        SUM(purchases_count) as total_purchases
+        SUM(purchases_count) as total_purchases,
+        SUM(likes_count) as total_likes,
+        SUM(shares_count) as total_shares
        FROM products
        WHERE seller_id = $1`,
+      [seller.id]
+    );
+
+    // Статистика по заказам
+    const ordersStats = await db.query(
+      `SELECT 
+        COUNT(*) as total_orders,
+        COUNT(CASE WHEN order_status = 'delivered' THEN 1 END) as completed_orders,
+        COUNT(CASE WHEN payment_status = 'confirmed' THEN 1 END) as paid_orders,
+        SUM(CASE WHEN payment_status = 'confirmed' THEN total_price ELSE 0 END) as total_revenue,
+        AVG(CASE WHEN payment_status = 'confirmed' THEN total_price ELSE NULL END) as avg_order_value
+       FROM orders
+       WHERE seller_id = $1`,
+      [seller.id]
+    );
+
+    // Статистика по подписчикам
+    const subscribersStats = await db.query(
+      `SELECT COUNT(*) as total_subscribers
+       FROM subscriptions
+       WHERE seller_id = $1`,
+      [seller.id]
+    );
+
+    // Статистика по метрикам (просмотры, клики, конверсия)
+    const metricsStats = await db.query(
+      `SELECT 
+        SUM(p.views_count) as total_views,
+        SUM(p.likes_count) as total_likes,
+        SUM(p.shares_count) as total_shares,
+        SUM(p.purchases_count) as total_purchases,
+        CASE 
+          WHEN SUM(p.views_count) > 0 
+          THEN ROUND(SUM(p.purchases_count) * 100.0 / SUM(p.views_count), 2)
+          ELSE 0 
+        END as conversion_rate
+       FROM products p
+       WHERE p.seller_id = $1 AND p.status = 'approved'`,
+      [seller.id]
+    );
+
+    // Статистика по товарам (топ товары)
+    const topProducts = await db.query(
+      `SELECT id, name, views_count, likes_count, purchases_count
+       FROM products
+       WHERE seller_id = $1 AND status = 'approved'
+       ORDER BY purchases_count DESC, views_count DESC
+       LIMIT 5`,
       [seller.id]
     );
 
@@ -161,7 +211,13 @@ router.get('/my-shop', authenticate, requireSeller, async (req, res) => {
       seller,
       products: productsResult.rows,
       collections: collectionsResult.rows,
-      stats: statsResult.rows[0]
+      stats: {
+        ...statsResult.rows[0],
+        ...ordersStats.rows[0],
+        ...subscribersStats.rows[0],
+        ...metricsStats.rows[0]
+      },
+      top_products: topProducts.rows
     });
   } catch (error) {
     console.error('Ошибка получения магазина:', error);
