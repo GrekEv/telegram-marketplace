@@ -29,7 +29,7 @@ router.get('/feed', authenticate, async (req, res) => {
       INNER JOIN users u ON s.user_id = u.id
       LEFT JOIN product_likes pl ON p.id = pl.product_id
       LEFT JOIN subscriptions sub ON sub.user_id = $1 AND sub.seller_id = s.id
-      WHERE p.status = 'approved'
+      WHERE p.status != 'archived'
       GROUP BY p.id, s.id, u.id, sub.id
     `;
 
