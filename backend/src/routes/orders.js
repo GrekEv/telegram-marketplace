@@ -4,40 +4,30 @@ import { authenticate } from '../middleware/auth.js';
 import multer from 'multer';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const router = express.Router();
 
-// Настройка multer для загрузки фото подтверждения оплаты
-const uploadDir = join(__dirname, '../../uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
+// Настройка multer для загрузки файлов
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, uploadDir);
+    cb(null, join(__dirname, '../../uploads'));
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'payment-' + uniqueSuffix + '.' + file.originalname.split('.').pop());
+    cb(null, file.fieldname + '-' + uniqueSuffix + '.' + file.originalname.split('.').pop());
   }
 });
 
-const upload = multer({ 
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+const upload = multer({
+  storage: storage,
   fileFilter: (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|gif|webp/;
-    const extname = allowedTypes.test(file.originalname.toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-    if (extname && mimetype) {
+    if (file.mimetype.startsWith('image/')) {
       cb(null, true);
     } else {
-      cb(new Error('Разрешены только изображения'));
+      cb(new Error('Только изображения!'), false);
     }
   }
 });
@@ -102,6 +92,51 @@ router.post('/', authenticate, async (req, res) => {
   } catch (error) {
     console.error('Ошибка создания заказа:', error);
     res.status(500).json({ error: 'Ошибка создания заказа' });
+  }
+});
+
+// Получить детали заказа
+router.get('/:orderId', authenticate, async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const userId = req.user.id;
+
+    // Получаем заказ с полной информацией
+    const orderResult = await db.query(
+      `SELECT 
+        o.*,
+        p.id as product_id,
+        p.name as product_name,
+        p.description as product_description,
+        p.price as product_price,
+        p.discount as product_discount,
+        p.currency as product_currency,
+        p.images as product_images,
+        p.is_digital as product_is_digital,
+        s.id as seller_id,
+        s.shop_name,
+        s.logo_url as seller_logo,
+        u_seller.username as seller_username,
+        u_buyer.username as buyer_username,
+        u_buyer.first_name as buyer_first_name,
+        u_buyer.last_name as buyer_last_name
+       FROM orders o
+       LEFT JOIN products p ON o.product_id = p.id
+       LEFT JOIN sellers s ON o.seller_id = s.id
+       LEFT JOIN users u_seller ON s.user_id = u_seller.id
+       LEFT JOIN users u_buyer ON o.user_id = u_buyer.id
+       WHERE o.id = $1 AND o.user_id = $2`,
+      [orderId, userId]
+    );
+
+    if (orderResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Заказ не найден' });
+    }
+
+    res.json({ order: orderResult.rows[0] });
+  } catch (error) {
+    console.error('Ошибка получения заказа:', error);
+    res.status(500).json({ error: 'Ошибка получения заказа' });
   }
 });
 
@@ -312,4 +347,3 @@ router.put('/:orderId/status', authenticate, async (req, res) => {
 });
 
 export default router;
-

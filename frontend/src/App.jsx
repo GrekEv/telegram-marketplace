@@ -16,6 +16,7 @@ import ProductModeration from './pages/ProductModeration';
 import EditProfile from './pages/EditProfile';
 import Settings from './pages/Settings';
 import MyOrders from './pages/MyOrders';
+import OrderDetail from './pages/OrderDetail';
 import Favorites from './pages/Favorites';
 import Cart from './pages/Cart';
 import Search from './pages/Search';
@@ -58,6 +59,7 @@ function App() {
             <Route path="/edit-profile" element={<EditProfile />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/orders" element={<MyOrders />} />
+            <Route path="/order/:id" element={<OrderDetail />} />
             <Route path="/favorites" element={<Favorites />} />
             <Route path="/cart" element={<Cart />} />
             <Route path="/search" element={<Search />} />
