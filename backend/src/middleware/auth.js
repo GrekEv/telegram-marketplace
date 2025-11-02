@@ -50,18 +50,34 @@ export const requireRole = (...roles) => {
 // Проверка, что пользователь является продавцом
 export const requireSeller = async (req, res, next) => {
   try {
-    if (req.user.role === 'seller' || req.user.role === 'admin' || req.user.role === 'superadmin') {
+    // Админы и суперадмины всегда имеют доступ
+    if (req.user.role === 'admin' || req.user.role === 'superadmin') {
       return next();
     }
 
-    // Проверяем, есть ли у пользователя активный магазин
+    if (req.user.role === 'seller') {
+      // Для продавцов проверяем наличие магазина
+      const sellerResult = await db.query(
+        'SELECT id, status FROM sellers WHERE user_id = $1 AND status = $2',
+        [req.user.id, 'approved']
+      );
+
+      if (sellerResult.rows.length === 0) {
+        return res.status(403).json({ error: 'Требуется статус продавца' });
+      }
+
+      req.seller = sellerResult.rows[0];
+      return next();
+    }
+
+    // Для обычных пользователей проверяем наличие магазина (pending или approved)
     const sellerResult = await db.query(
-      'SELECT id, status FROM sellers WHERE user_id = $1 AND status = $2',
-      [req.user.id, 'approved']
+      'SELECT id, status FROM sellers WHERE user_id = $1 AND status IN ($2, $3)',
+      [req.user.id, 'pending', 'approved']
     );
 
     if (sellerResult.rows.length === 0) {
-      return res.status(403).json({ error: 'Требуется статус продавца' });
+      return res.status(403).json({ error: 'Требуется статус продавца. Подайте заявку на создание магазина.' });
     }
 
     req.seller = sellerResult.rows[0];

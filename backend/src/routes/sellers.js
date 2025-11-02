@@ -67,46 +67,52 @@ router.post('/apply', authenticate, async (req, res) => {
       }
     }
 
+    // Для админов и суперадминов автоматически одобряем магазин
+    const isAdmin = req.user.role === 'admin' || req.user.role === 'superadmin';
+    const initialStatus = isAdmin ? 'approved' : 'pending';
+
     // Создаем заявку
     const result = await db.query(
       `INSERT INTO sellers (user_id, shop_name, description, status)
-       VALUES ($1, $2, $3, 'pending')
+       VALUES ($1, $2, $3, $4)
        RETURNING *`,
-      [req.user.id, shop_name, description || null]
+      [req.user.id, shop_name, description || null, initialStatus]
     );
 
-    // Уведомляем всех админов о новой заявке
-    try {
-      const adminsResult = await db.query(
-        "SELECT id FROM users WHERE role IN ('admin', 'superadmin')"
-      );
+    // Уведомляем всех админов о новой заявке (только если это не автодобрение)
+    if (!isAdmin) {
+      try {
+        const adminsResult = await db.query(
+          "SELECT id FROM users WHERE role IN ('admin', 'superadmin')"
+        );
 
-      for (const admin of adminsResult.rows) {
-        try {
-          await db.query(
-            `INSERT INTO notifications (user_id, type, title, message, data)
-             VALUES ($1, 'seller_application', 'Новая заявка на продавца', 
-             'Новая заявка от пользователя: ' || $2 || '. Магазин: ' || $3, $4)`,
-            [
-              admin.id,
-              req.user.username || req.user.first_name || 'Пользователь',
-              shop_name,
-              JSON.stringify({ seller_id: result.rows[0].id, user_id: req.user.id })
-            ]
-          );
-        } catch (notifError) {
-          console.error(`Ошибка отправки уведомления админу ${admin.id}:`, notifError);
-          // Продолжаем для других админов
+        for (const admin of adminsResult.rows) {
+          try {
+            await db.query(
+              `INSERT INTO notifications (user_id, type, title, message, data)
+               VALUES ($1, 'seller_application', 'Новая заявка на продавца', 
+               'Новая заявка от пользователя: ' || $2 || '. Магазин: ' || $3, $4)`,
+              [
+                admin.id,
+                req.user.username || req.user.first_name || 'Пользователь',
+                shop_name,
+                JSON.stringify({ seller_id: result.rows[0].id, user_id: req.user.id })
+              ]
+            );
+          } catch (notifError) {
+            console.error(`Ошибка отправки уведомления админу ${admin.id}:`, notifError);
+            // Продолжаем для других админов
+          }
         }
+        console.log(`Уведомления отправлены ${adminsResult.rows.length} админам`);
+      } catch (adminsError) {
+        console.error('Ошибка получения списка админов для уведомлений:', adminsError);
+        // Не прерываем выполнение, заявка уже создана
       }
-      console.log(`Уведомления отправлены ${adminsResult.rows.length} админам`);
-    } catch (adminsError) {
-      console.error('Ошибка получения списка админов для уведомлений:', adminsError);
-      // Не прерываем выполнение, заявка уже создана
     }
 
     res.json({
-      message: 'Заявка подана на модерацию',
+      message: isAdmin ? 'Магазин создан и одобрен автоматически' : 'Заявка подана на модерацию',
       seller: result.rows[0]
     });
   } catch (error) {
@@ -323,13 +329,17 @@ router.post('/products', authenticate, requireSeller, upload.array('images', 10)
       return res.status(400).json({ error: 'Название и цена товара обязательны' });
     }
 
+    // Для админов и суперадминов разрешаем добавлять товары даже если магазин pending
+    const isAdmin = req.user.role === 'admin' || req.user.role === 'superadmin';
+    const statusCheck = isAdmin ? "status IN ('pending', 'approved')" : "status = 'approved'";
+    
     const sellerResult = await db.query(
-      'SELECT id FROM sellers WHERE user_id = $1 AND status = $2',
-      [req.user.id, 'approved']
+      `SELECT id FROM sellers WHERE user_id = $1 AND ${statusCheck}`,
+      [req.user.id]
     );
 
     if (sellerResult.rows.length === 0) {
-      return res.status(403).json({ error: 'Магазин не одобрен' });
+      return res.status(403).json({ error: 'Магазин не найден или не одобрен' });
     }
 
     const sellerId = sellerResult.rows[0].id;
@@ -341,9 +351,12 @@ router.post('/products', authenticate, requireSeller, upload.array('images', 10)
     // Парсим теги
     const tagsArray = tags ? (typeof tags === 'string' ? JSON.parse(tags) : tags) : [];
 
+    // Для админов и суперадминов автоматически одобряем товар
+    const productStatus = isAdmin ? 'approved' : 'pending';
+
     const result = await db.query(
       `INSERT INTO products (seller_id, collection_id, name, description, price, discount, currency, images, tags, is_digital, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'pending')
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
       [
         sellerId,
@@ -355,12 +368,13 @@ router.post('/products', authenticate, requireSeller, upload.array('images', 10)
         currency || 'RUB',
         JSON.stringify(images),
         JSON.stringify(tagsArray),
-        is_digital === 'true' || is_digital === true
+        is_digital === 'true' || is_digital === true,
+        productStatus
       ]
     );
 
     res.json({
-      message: 'Товар добавлен и ожидает модерации',
+      message: isAdmin ? 'Товар добавлен и одобрен автоматически' : 'Товар добавлен и ожидает модерации',
       product: result.rows[0]
     });
   } catch (error) {
