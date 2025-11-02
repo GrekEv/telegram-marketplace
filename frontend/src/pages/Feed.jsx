@@ -117,13 +117,19 @@ const Feed = () => {
             className="product-card"
           >
             <div className="product-image-wrapper">
-              {product.images && product.images[0] ? (
-                <img src={product.images[0]} alt={product.name} className="product-image" />
-              ) : (
-                <div className="product-image-placeholder">
-                  <span className="placeholder-icon">📦</span>
-                </div>
-              )}
+              {(() => {
+                const images = typeof product.images === 'string' 
+                  ? JSON.parse(product.images || '[]') 
+                  : (product.images || []);
+                const mainImage = images[0];
+                return mainImage ? (
+                  <img src={mainImage} alt={product.name} className="product-image" />
+                ) : (
+                  <div className="product-image-placeholder">
+                    <span className="placeholder-icon">📦</span>
+                  </div>
+                );
+              })()}
               
               {product.feed_category === 'promoted' && (
                 <span className="promoted-badge">
