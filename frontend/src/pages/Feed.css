@@ -63,10 +63,28 @@
   padding-bottom: var(--spacing-xs);
   scrollbar-width: none;
   -ms-overflow-style: none;
+  flex-wrap: wrap;
 }
 
 .categories-scroll::-webkit-scrollbar {
   display: none;
+}
+
+/* Мобильная версия - переносим "Популярное" и "Продвигаемое" на вторую строку */
+@media (max-width: 480px) {
+  .categories-scroll {
+    flex-wrap: wrap;
+  }
+  
+  .category-btn:nth-child(4),
+  .category-btn:nth-child(5) {
+    flex-basis: calc(50% - var(--spacing-sm));
+    margin-top: var(--spacing-sm);
+  }
+  
+  .category-btn:nth-child(-n+3) {
+    flex: 1 1 calc(33.333% - var(--spacing-sm));
+  }
 }
 
 .category-btn {
