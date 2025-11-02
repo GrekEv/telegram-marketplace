@@ -119,6 +119,33 @@ const Profile = () => {
         </div>
       )}
 
+      {/* Меню профиля */}
+      <div className="profile-menu">
+        <Link to="/edit-profile" className="profile-menu-item">
+          <span className="menu-icon">✏️</span>
+          <span className="menu-label">Редактирование профиля</span>
+          <span className="menu-arrow">→</span>
+        </Link>
+        
+        <Link to="/settings" className="profile-menu-item">
+          <span className="menu-icon">⚙️</span>
+          <span className="menu-label">Настройки</span>
+          <span className="menu-arrow">→</span>
+        </Link>
+        
+        <Link to="/orders" className="profile-menu-item">
+          <span className="menu-icon">📦</span>
+          <span className="menu-label">Мои заказы</span>
+          <span className="menu-arrow">→</span>
+        </Link>
+        
+        <Link to="/favorites" className="profile-menu-item">
+          <span className="menu-icon">❤️</span>
+          <span className="menu-label">Избранное</span>
+          <span className="menu-arrow">→</span>
+        </Link>
+      </div>
+
       {/* Информация для существующих продавцов/админов */}
       {user.role !== 'user' && (
         <div className="profile-info-card">

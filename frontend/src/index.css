@@ -61,6 +61,11 @@ body {
   min-height: 100vh;
 }
 
+/* Отступ для нижней навигации */
+.app {
+  padding-bottom: 70px;
+}
+
 /* Кнопки */
 button {
   cursor: pointer;

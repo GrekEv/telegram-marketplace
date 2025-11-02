@@ -164,6 +164,16 @@
   color: white;
 }
 
+.cart-btn {
+  background: var(--secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+
+.cart-btn:hover {
+  background: var(--border);
+}
+
 .buy-btn.primary {
   flex: 2;
   background: var(--primary);

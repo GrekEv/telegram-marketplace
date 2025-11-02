@@ -132,7 +132,7 @@ router.post('/telegram', async (req, res) => {
 router.get('/me', authenticate, async (req, res) => {
   try {
     const userResult = await db.query(
-      'SELECT id, telegram_id, username, first_name, last_name, photo_url, role FROM users WHERE id = $1',
+      'SELECT id, telegram_id, username, first_name, last_name, photo_url, role, email, phone, address, city, postal_code FROM users WHERE id = $1',
       [req.user.id]
     );
 
@@ -157,6 +157,77 @@ router.get('/me', authenticate, async (req, res) => {
   } catch (error) {
     console.error('Ошибка получения пользователя:', error);
     res.status(500).json({ error: 'Ошибка получения данных пользователя' });
+  }
+});
+
+// Обновить профиль пользователя
+router.put('/profile', authenticate, async (req, res) => {
+  try {
+    const { first_name, last_name, email, phone, address, city, postal_code } = req.body;
+    
+    const updates = [];
+    const params = [];
+    let paramIndex = 1;
+
+    if (first_name !== undefined) {
+      updates.push(`first_name = $${paramIndex}`);
+      params.push(first_name || null);
+      paramIndex++;
+    }
+
+    if (last_name !== undefined) {
+      updates.push(`last_name = $${paramIndex}`);
+      params.push(last_name || null);
+      paramIndex++;
+    }
+
+    if (email !== undefined) {
+      updates.push(`email = $${paramIndex}`);
+      params.push(email || null);
+      paramIndex++;
+    }
+
+    if (phone !== undefined) {
+      updates.push(`phone = $${paramIndex}`);
+      params.push(phone || null);
+      paramIndex++;
+    }
+
+    if (address !== undefined) {
+      updates.push(`address = $${paramIndex}`);
+      params.push(address || null);
+      paramIndex++;
+    }
+
+    if (city !== undefined) {
+      updates.push(`city = $${paramIndex}`);
+      params.push(city || null);
+      paramIndex++;
+    }
+
+    if (postal_code !== undefined) {
+      updates.push(`postal_code = $${paramIndex}`);
+      params.push(postal_code || null);
+      paramIndex++;
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'Нет данных для обновления' });
+    }
+
+    params.push(req.user.id);
+
+    const result = await db.query(
+      `UPDATE users SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $${paramIndex} 
+       RETURNING id, telegram_id, username, first_name, last_name, photo_url, role, email, phone, address, city, postal_code`,
+      params
+    );
+
+    res.json({ user: result.rows[0] });
+  } catch (error) {
+    console.error('Ошибка обновления профиля:', error);
+    res.status(500).json({ error: 'Ошибка обновления профиля' });
   }
 });
 

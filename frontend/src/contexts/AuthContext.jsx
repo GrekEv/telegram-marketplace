@@ -77,6 +77,10 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const updateUser = (userData) => {
+    setUser(userData);
+  };
+
   const logout = () => {
     setUser(null);
     setToken(null);
@@ -85,7 +89,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, authenticateTelegram, logout }}>
+    <AuthContext.Provider value={{ user, loading, authenticateTelegram, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

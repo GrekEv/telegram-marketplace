@@ -60,6 +60,45 @@ const ProductDetail = () => {
     setShowBuyModal(true);
   };
 
+  const handleAddToCart = () => {
+    try {
+      const savedCart = JSON.parse(localStorage.getItem('cart') || '[]');
+      const existingItem = savedCart.find(item => item.product_id === product.id);
+      
+      if (existingItem) {
+        // Увеличиваем количество
+        const updatedCart = savedCart.map(item =>
+          item.product_id === product.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        );
+        localStorage.setItem('cart', JSON.stringify(updatedCart));
+      } else {
+        // Добавляем новый товар
+        const images = typeof product.images === 'string' 
+          ? JSON.parse(product.images || '[]')
+          : (product.images || []);
+        
+        const newItem = {
+          product_id: product.id,
+          name: product.name,
+          price: product.price,
+          discount: product.discount || 0,
+          currency: product.currency || 'RUB',
+          images: images,
+          quantity: 1
+        };
+        savedCart.push(newItem);
+        localStorage.setItem('cart', JSON.stringify(savedCart));
+      }
+      haptic('light');
+      alert('Товар добавлен в корзину');
+    } catch (error) {
+      console.error('Ошибка добавления в корзину:', error);
+      haptic('error');
+    }
+  };
+
   if (loading) {
     return (
       <div className="loading">
@@ -148,10 +187,18 @@ const ProductDetail = () => {
           </button>
           
           <button 
+            onClick={handleAddToCart} 
+            className="action-btn cart-btn"
+          >
+            <span className="btn-icon">🛒</span>
+            <span>В корзину</span>
+          </button>
+          
+          <button 
             onClick={handleBuy} 
             className="action-btn buy-btn primary"
           >
-            <span className="btn-icon">🛒</span>
+            <span className="btn-icon">💰</span>
             <span>Купить</span>
           </button>
         </div>
