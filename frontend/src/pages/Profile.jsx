@@ -71,7 +71,7 @@ const Profile = () => {
       </div>
 
       {/* Заявка на продавца */}
-      {(user.role === 'user' || user.role !== 'seller') && (
+      {user.role === 'user' && (
         <div className="become-seller-card">
           <div className="card-header">
             <span className="card-icon">🏪</span>

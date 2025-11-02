@@ -55,6 +55,7 @@ router.get('/feed', authenticate, async (req, res) => {
       LEFT JOIN product_likes pl ON p.id = pl.product_id
       LEFT JOIN subscriptions sub ON sub.user_id = $1 AND sub.seller_id = s.id
       WHERE p.status = 'approved' AND s.status = 'approved'
+      GROUP BY p.id, s.id, u.id, s.shop_name, s.logo_url, u.username
     `;
 
     const params = [userId];
@@ -70,7 +71,7 @@ router.get('/feed', authenticate, async (req, res) => {
       }
     }
 
-    query += ` GROUP BY p.id, s.id, u.id, s.shop_name, s.logo_url, u.username, p.is_promoted, p.promotion_until, p.purchases_count, p.created_at
+    query += ` GROUP BY p.id, s.id, u.id, sub.id
       ORDER BY 
         CASE feed_category
           WHEN 'promoted' THEN 1

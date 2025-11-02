@@ -64,14 +64,6 @@ const Header = () => {
                   <span className="nav-text">Модерация</span>
                 </Link>
               )}
-              
-              <Link 
-                to="/profile" 
-                className={`nav-link ${isActive('/profile') ? 'active' : ''}`}
-              >
-                <span className="nav-icon">👤</span>
-                <span className="nav-text">Профиль</span>
-              </Link>
             </>
           ) : (
             <Link to="/login" className="nav-link">
