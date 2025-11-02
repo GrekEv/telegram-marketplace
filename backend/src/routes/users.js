@@ -46,7 +46,6 @@ router.get('/feed', authenticate, async (req, res) => {
           WHEN p.is_promoted = true AND p.promotion_until > NOW() THEN 1000
           WHEN sub.id IS NOT NULL THEN 800
           WHEN p.purchases_count > 20 THEN 600
-          WHEN p.rating > 4.5 THEN 500
           WHEN p.likes_count > 100 THEN 400
           ELSE 100
         END + COALESCE((SELECT COUNT(*) * 50 FROM reviews r WHERE r.product_id = p.id AND r.rating >= 4), 0) as relevance_score
