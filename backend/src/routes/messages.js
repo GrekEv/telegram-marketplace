@@ -210,27 +210,33 @@ router.get('/support-requests', authenticate, async (req, res) => {
 
     // Получаем все чаты, где пользователи писали админу (support requests)
     const result = await db.query(
-      `SELECT 
-        m.sender_id as user_id,
+      `WITH last_messages AS (
+        SELECT DISTINCT ON (m.sender_id)
+          m.sender_id,
+          m.text as last_message,
+          m.created_at as last_message_time,
+          m.is_read
+        FROM messages m
+        WHERE m.receiver_id = $1
+        ORDER BY m.sender_id, m.created_at DESC
+      )
+      SELECT 
+        lm.sender_id as user_id,
         u.username,
         u.first_name,
         u.last_name,
         u.photo_url,
         u.role as user_role,
-        m.text as last_message,
-        m.created_at as last_message_time,
-        m.is_read,
+        lm.last_message,
+        lm.last_message_time,
+        lm.is_read,
         COUNT(*) FILTER (WHERE m.receiver_id = $1 AND m.is_read = false) as unread_count
-       FROM messages m
-       INNER JOIN users u ON m.sender_id = u.id
-       WHERE m.receiver_id = $1 AND u.role = 'user'
-       AND m.created_at = (
-         SELECT MAX(created_at) 
-         FROM messages m2 
-         WHERE m2.sender_id = m.sender_id AND m2.receiver_id = $1
-       )
-       GROUP BY m.sender_id, u.id, m.text, m.created_at, m.is_read
-       ORDER BY m.created_at DESC`,
+       FROM last_messages lm
+       INNER JOIN users u ON lm.sender_id = u.id
+       LEFT JOIN messages m ON m.sender_id = lm.sender_id AND m.receiver_id = $1
+       WHERE u.role = 'user'
+       GROUP BY lm.sender_id, u.id, lm.last_message, lm.last_message_time, lm.is_read
+       ORDER BY lm.last_message_time DESC`,
       [currentUserId]
     );
 
