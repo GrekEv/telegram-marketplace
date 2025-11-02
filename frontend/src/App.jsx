@@ -18,6 +18,7 @@ import Settings from './pages/Settings';
 import MyOrders from './pages/MyOrders';
 import Favorites from './pages/Favorites';
 import Cart from './pages/Cart';
+import Search from './pages/Search';
 import BottomNavigation from './components/BottomNavigation';
 
 function App() {
@@ -58,7 +59,7 @@ function App() {
             <Route path="/orders" element={<MyOrders />} />
             <Route path="/favorites" element={<Favorites />} />
             <Route path="/cart" element={<Cart />} />
-            <Route path="/search" element={<Feed />} />
+            <Route path="/search" element={<Search />} />
             <Route path="/login" element={<Login />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/admin/seller-application/:sellerId" element={<SellerApplication />} />

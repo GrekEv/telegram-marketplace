@@ -129,9 +129,11 @@ router.get('/search', authenticate, async (req, res) => {
 
     if (!type || type === 'sellers' || type === 'all') {
       let sellerQuery = `
-        SELECT s.*, u.username, u.first_name, u.last_name, u.photo_url
+        SELECT s.*, u.username, u.first_name, u.last_name, u.photo_url,
+               COUNT(DISTINCT p.id) as products_count
         FROM sellers s
         INNER JOIN users u ON s.user_id = u.id
+        LEFT JOIN products p ON p.seller_id = s.id AND p.status = 'approved'
         WHERE s.status = 'approved'
       `;
 
@@ -141,9 +143,10 @@ router.get('/search', authenticate, async (req, res) => {
       if (q) {
         sellerQuery += ` AND (s.shop_name ILIKE $${paramIndex} OR s.description ILIKE $${paramIndex})`;
         sellerParams.push(`%${q}%`);
+        paramIndex++;
       }
 
-      sellerQuery += ` ORDER BY s.total_sales DESC, s.rating DESC LIMIT 20`;
+      sellerQuery += ` GROUP BY s.id, u.id ORDER BY s.total_sales DESC, s.rating DESC LIMIT 20`;
       
       const sellerResult = await db.query(sellerQuery, sellerParams);
       results.sellers = sellerResult.rows;
