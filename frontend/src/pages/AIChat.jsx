@@ -24,13 +24,16 @@ const AIChat = () => {
     if (!input.trim() || loading) return;
 
     const userMessage = { role: 'user', text: input };
+    const currentInput = input;
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setLoading(true);
 
     try {
+      // Отправляем сообщение вместе с историей для контекста
       const response = await api.post('/ai/chat', {
-        message: input
+        message: currentInput,
+        conversation_history: messages
       });
 
       const aiMessage = { role: 'assistant', text: response.data.response || response.data.answer || 'Извините, не удалось получить ответ' };

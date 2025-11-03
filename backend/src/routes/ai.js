@@ -1,8 +1,15 @@
 import express from 'express';
 import db from '../database/connection.js';
 import { authenticate, requireSeller } from '../middleware/auth.js';
+import OpenAI from 'openai';
 
 const router = express.Router();
+
+// Инициализация DeepSeek API клиента
+const deepseek = new OpenAI({
+  apiKey: 'sk-85910d604cfe4ed9a3ff57d8359a590a',
+  baseURL: 'https://api.deepseek.com'
+});
 
 // AI анализ товара и предложения по улучшению
 router.post('/analyze-product', authenticate, requireSeller, async (req, res) => {
@@ -242,35 +249,78 @@ router.post('/analyze-clickability', authenticate, requireSeller, async (req, re
   }
 });
 
-// Чат с ИИ
+// Чат с ИИ через DeepSeek
 router.post('/chat', authenticate, async (req, res) => {
   try {
-    const { message } = req.body;
+    const { message, conversation_history } = req.body;
 
     if (!message) {
       return res.status(400).json({ error: 'Сообщение обязательно' });
     }
 
-    // Простой ответ на основе ключевых слов (можно заменить на реальный AI API)
-    const lowerMessage = message.toLowerCase();
-    let response = '';
+    // Системный промпт для AI-ассистента маркетплейса
+    const systemPrompt = `Ты - умный AI-ассистент для продавцов на маркетплейсе Telegram. 
+Твоя задача - помогать продавцам улучшать свои товары и увеличивать продажи.
 
-    if (lowerMessage.includes('описание') || lowerMessage.includes('товар')) {
-      response = 'Для улучшения описания товара рекомендую:\n\n1. Добавьте ключевые слова, которые ищут покупатели\n2. Укажите основные характеристики и преимущества\n3. Используйте эмоциональные слова: "уникальный", "качественный", "стильный"\n4. Добавьте призыв к действию: "Закажите сейчас", "Ограниченное предложение"\n5. Включите информацию о доставке и возврате';
-    } else if (lowerMessage.includes('цена') || lowerMessage.includes('стоимость')) {
-      response = 'При установке цены учитывайте:\n\n1. Стоимость товара и доставки\n2. Цены конкурентов\n3. Уникальность товара\n4. Сезонность спроса\n5. Возможность скидок для привлечения покупателей\n\nРекомендую установить цену на 10-20% выше себестоимости, но ниже среднерыночной.';
-    } else if (lowerMessage.includes('продаж') || lowerMessage.includes('увеличить')) {
-      response = 'Чтобы увеличить продажи:\n\n1. Используйте качественные фотографии товара\n2. Добавляйте подробные описания\n3. Отвечайте быстро на вопросы покупателей\n4. Предлагайте скидки и акции\n5. Используйте продвижение товаров\n6. Собирайте и публикуйте отзывы\n7. Создавайте коллекции товаров';
-    } else if (lowerMessage.includes('фото') || lowerMessage.includes('изображен')) {
-      response = 'Для хороших фотографий товара:\n\n1. Используйте естественное освещение\n2. Показывайте товар с разных ракурсов\n3. Делайте фото на нейтральном фоне\n4. Показывайте товар в использовании\n5. Используйте высокое разрешение\n6. Добавьте фотографии деталей и упаковки';
-    } else {
-      response = 'Я могу помочь вам с:\n\n• Улучшением описаний товаров\n• Установкой цен\n• Увеличением продаж\n• Фотографированием товаров\n• Оптимизацией магазина\n\nЗадайте конкретный вопрос, и я дам рекомендации!';
+Ты можешь помочь с:
+• Созданием привлекательных описаний товаров
+• Установкой правильных цен
+• Стратегиями увеличения продаж
+• Советами по фотографированию товаров
+• Оптимизацией магазина
+• Работой с отзывами и клиентами
+• Продвижением товаров
+
+Отвечай на русском языке, будь дружелюбным и конкретным. 
+Давай практические советы и примеры.`;
+
+    // Формируем историю сообщений для контекста
+    const messages = [
+      { role: 'system', content: systemPrompt }
+    ];
+
+    // Добавляем историю разговора, если есть
+    if (conversation_history && Array.isArray(conversation_history)) {
+      conversation_history.forEach(msg => {
+        messages.push({
+          role: msg.role === 'user' ? 'user' : 'assistant',
+          content: msg.text
+        });
+      });
     }
 
-    res.json({ response });
+    // Добавляем текущее сообщение
+    messages.push({ role: 'user', content: message });
+
+    // Отправляем запрос к DeepSeek API
+    const completion = await deepseek.chat.completions.create({
+      model: 'deepseek-chat',
+      messages: messages,
+      temperature: 0.7,
+      max_tokens: 1000
+    });
+
+    const aiResponse = completion.choices[0]?.message?.content || 'Извините, не удалось получить ответ';
+
+    res.json({ response: aiResponse });
   } catch (error) {
-    console.error('Ошибка AI чата:', error);
-    res.status(500).json({ error: 'Ошибка обработки запроса' });
+    console.error('Ошибка DeepSeek API:', error);
+    
+    // Если API недоступен, используем fallback
+    let fallbackResponse = 'Извините, AI-ассистент временно недоступен. ';
+    
+    const lowerMessage = req.body.message.toLowerCase();
+    if (lowerMessage.includes('описание') || lowerMessage.includes('товар')) {
+      fallbackResponse += 'Для улучшения описания товара: добавьте ключевые слова, характеристики, преимущества и призыв к действию.';
+    } else if (lowerMessage.includes('цена') || lowerMessage.includes('стоимость')) {
+      fallbackResponse += 'При установке цены учитывайте себестоимость, цены конкурентов и уникальность товара.';
+    } else if (lowerMessage.includes('продаж') || lowerMessage.includes('увеличить')) {
+      fallbackResponse += 'Для увеличения продаж: используйте качественные фото, подробные описания, быстро отвечайте покупателям.';
+    } else {
+      fallbackResponse += 'Я могу помочь с описаниями товаров, установкой цен, увеличением продаж и оптимизацией магазина.';
+    }
+    
+    res.json({ response: fallbackResponse });
   }
 });
 
