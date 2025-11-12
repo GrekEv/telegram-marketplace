@@ -28,11 +28,11 @@ const BottomNavigation = () => {
       </Link>
       
       <Link 
-        to="/search" 
-        className={`bottom-nav-item ${isActive('/search') && 'active'}`}
+        to="/shops" 
+        className={`bottom-nav-item ${isActive('/shops') && 'active'}`}
       >
-        <span className="bottom-nav-icon">🔍</span>
-        <span className="bottom-nav-label">Поиск</span>
+        <span className="bottom-nav-icon">🏪</span>
+        <span className="bottom-nav-label">Магазины</span>
       </Link>
       
       <Link 

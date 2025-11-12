@@ -29,10 +29,6 @@ const MyShop = () => {
       setStats(response.data.stats);
     } catch (error) {
       console.error('Ошибка загрузки магазина:', error);
-      // Если магазин не найден (404), оставляем shop = null
-      if (error.response?.status !== 404) {
-        alert('Ошибка загрузки магазина');
-      }
     } finally {
       setLoading(false);
     }
@@ -97,8 +93,12 @@ const MyShop = () => {
             {shop.description && <p>{shop.description}</p>}
             
             <div className="shop-actions">
-              <button className="action-btn outline">Настройки</button>
-              <button className="action-btn primary">Добавить товар</button>
+              <Link to="/shop-settings">
+                <button className="action-btn outline">Настройки</button>
+              </Link>
+              <Link to="/add-product">
+                <button className="action-btn primary">Добавить товар</button>
+              </Link>
             </div>
           </div>
         </div>
@@ -182,7 +182,9 @@ const MyShop = () => {
               <div className="empty-state">
                 <span className="empty-icon">📦</span>
                 <p>Товары не найдены</p>
-                <button className="primary-btn mt-3">Добавить первый товар</button>
+                <Link to="/add-product">
+                  <button className="primary-btn mt-3">Добавить первый товар</button>
+                </Link>
               </div>
             )}
           </div>

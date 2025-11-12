@@ -81,6 +81,17 @@ export const AuthProvider = ({ children }) => {
     setUser(userData);
   };
 
+  const refreshUser = async () => {
+    try {
+      const response = await api.get('/auth/me');
+      setUser(response.data.user);
+      return response.data.user;
+    } catch (error) {
+      console.error('Ошибка обновления пользователя:', error);
+      return null;
+    }
+  };
+
   const logout = () => {
     setUser(null);
     setToken(null);
@@ -89,7 +100,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, authenticateTelegram, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, loading, authenticateTelegram, logout, updateUser, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

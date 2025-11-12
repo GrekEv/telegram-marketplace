@@ -124,6 +124,76 @@ router.post('/apply', authenticate, async (req, res) => {
   }
 });
 
+// Получить список всех магазинов (для всех пользователей)
+router.get('/all', authenticate, async (req, res) => {
+  try {
+    const { limit = 20, offset = 0, search = '', sort = 'rating' } = req.query;
+
+    let query = `
+      SELECT s.*, u.username, u.first_name, u.last_name, u.photo_url,
+             COUNT(DISTINCT p.id) as products_count,
+             COUNT(DISTINCT sub.id) as subscribers_count
+      FROM sellers s
+      INNER JOIN users u ON s.user_id = u.id
+      LEFT JOIN products p ON p.seller_id = s.id AND p.status = 'approved'
+      LEFT JOIN subscriptions sub ON sub.seller_id = s.id
+      WHERE s.status = 'approved'
+    `;
+
+    const params = [];
+    let paramIndex = 1;
+
+    if (search) {
+      query += ` AND (s.shop_name ILIKE $${paramIndex} OR s.description ILIKE $${paramIndex})`;
+      params.push(`%${search}%`);
+      paramIndex++;
+    }
+
+    query += ` GROUP BY s.id, u.id`;
+
+    // Сортировка
+    if (sort === 'rating') {
+      query += ` ORDER BY s.rating DESC, s.total_sales DESC`;
+    } else if (sort === 'sales') {
+      query += ` ORDER BY s.total_sales DESC, s.rating DESC`;
+    } else if (sort === 'newest') {
+      query += ` ORDER BY s.created_at DESC`;
+    } else {
+      query += ` ORDER BY s.rating DESC`;
+    }
+
+    query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    params.push(parseInt(limit), parseInt(offset));
+
+    const result = await db.query(query, params);
+
+    // Получаем общее количество магазинов
+    let countQuery = `
+      SELECT COUNT(DISTINCT s.id) as total
+      FROM sellers s
+      WHERE s.status = 'approved'
+    `;
+    
+    const countParams = [];
+    if (search) {
+      countQuery += ` AND (s.shop_name ILIKE $1 OR s.description ILIKE $1)`;
+      countParams.push(`%${search}%`);
+    }
+
+    const countResult = await db.query(countQuery, countParams);
+
+    res.json({
+      sellers: result.rows,
+      total: parseInt(countResult.rows[0].total),
+      limit: parseInt(limit),
+      offset: parseInt(offset)
+    });
+  } catch (error) {
+    console.error('Ошибка получения списка магазинов:', error);
+    res.status(500).json({ error: 'Ошибка получения списка магазинов' });
+  }
+});
+
 // Получить информацию о своем магазине
 router.get('/my-shop', authenticate, requireSeller, async (req, res) => {
   try {
