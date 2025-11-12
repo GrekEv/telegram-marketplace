@@ -351,11 +351,38 @@
   color: var(--text-secondary);
 }
 
+.empty-state h3 {
+  font-size: 1.3rem;
+  color: var(--text-primary);
+  margin: 1rem 0 0.5rem 0;
+}
+
+.empty-state p {
+  margin-bottom: 1.5rem;
+}
+
 .empty-icon {
   font-size: 64px;
   display: block;
   margin-bottom: var(--spacing-md);
   opacity: 0.5;
+}
+
+.primary-btn-large {
+  padding: 1rem 2rem;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.primary-btn-large:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 /* Адаптивность */

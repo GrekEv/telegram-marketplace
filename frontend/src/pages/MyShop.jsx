@@ -181,9 +181,10 @@ const MyShop = () => {
             ) : (
               <div className="empty-state">
                 <span className="empty-icon">📦</span>
-                <p>Товары не найдены</p>
+                <h3>Товары не найдены</h3>
+                <p>Начните продавать — добавьте свой первый товар!</p>
                 <Link to="/add-product">
-                  <button className="primary-btn mt-3">Добавить первый товар</button>
+                  <button className="primary-btn-large mt-3">➕ Добавить первый товар</button>
                 </Link>
               </div>
             )}

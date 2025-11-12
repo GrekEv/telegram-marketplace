@@ -9,6 +9,7 @@ import ProductDetail from './pages/ProductDetail';
 import SellerProfile from './pages/SellerProfile';
 import MyShop from './pages/MyShop';
 import Shops from './pages/Shops';
+import AddProduct from './pages/AddProduct';
 import Profile from './pages/Profile';
 import Login from './pages/Login';
 import Notifications from './pages/Notifications';
@@ -64,6 +65,7 @@ function App() {
             <Route path="/seller/:id" element={<SellerProfile />} />
             <Route path="/shops" element={<Shops />} />
             <Route path="/my-shop" element={<MyShop />} />
+            <Route path="/add-product" element={<AddProduct />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/edit-profile" element={<EditProfile />} />
             <Route path="/settings" element={<Settings />} />
