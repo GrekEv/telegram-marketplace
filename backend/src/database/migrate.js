@@ -13,21 +13,36 @@ async function migrate() {
     // Подключаемся к БД
     await db.connect();
     
-    // Читаем SQL схему
+    // Читаем и выполняем SQL схему
+    console.log('1. Создание схемы базы данных...');
     const schemaPath = join(__dirname, 'schema.sql');
     const schemaSQL = fs.readFileSync(schemaPath, 'utf8');
-    
-    // Выполняем SQL
     await db.query(schemaSQL);
+    console.log('✅ Схема создана!');
     
-    console.log('Миграция выполнена успешно!');
+    // Добавляем тестовые данные (основной магазин)
+    console.log('2. Добавление первого тестового магазина...');
+    const seedTestDataPath = join(__dirname, 'seed_test_data.sql');
+    if (fs.existsSync(seedTestDataPath)) {
+      const seedTestDataSQL = fs.readFileSync(seedTestDataPath, 'utf8');
+      await db.query(seedTestDataSQL);
+      console.log('✅ Первый тестовый магазин добавлен!');
+    }
     
-    // Создаем первого суперадмина (если нужно)
-    // Это можно сделать вручную через API или скрипт
+    // Добавляем дополнительные тестовые магазины
+    console.log('3. Добавление дополнительных тестовых магазинов...');
+    const seedMoreShopsPath = join(__dirname, 'seed_more_shops.sql');
+    if (fs.existsSync(seedMoreShopsPath)) {
+      const seedMoreShopsSQL = fs.readFileSync(seedMoreShopsPath, 'utf8');
+      await db.query(seedMoreShopsSQL);
+      console.log('✅ Дополнительные магазины добавлены!');
+    }
+    
+    console.log('🎉 Миграция выполнена успешно!');
     
     process.exit(0);
   } catch (error) {
-    console.error('Ошибка при миграции:', error);
+    console.error('❌ Ошибка при миграции:', error);
     process.exit(1);
   }
 }
