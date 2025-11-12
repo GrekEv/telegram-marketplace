@@ -6,13 +6,11 @@ import './Feed.css';
 const Feed = () => {
   const [products, setProducts] = useState([]);
   const [sellers, setSellers] = useState([]);
-  const [popularShops, setPopularShops] = useState([]);
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    fetchPopularShops(); // Загружаем магазины при монтировании
     if (category === 'subscription') {
       fetchSubscriptions();
     } else {
@@ -20,25 +18,31 @@ const Feed = () => {
     }
   }, [category]);
 
-  const fetchPopularShops = async () => {
-    try {
-      const response = await api.get('/sellers/all', {
-        params: { limit: 10, sort: 'rating' }
-      });
-      setPopularShops(response.data.sellers || []);
-    } catch (error) {
-      console.error('Ошибка загрузки магазинов:', error);
-    }
-  };
-
   const fetchFeed = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/users/feed', {
+      
+      // Загружаем товары
+      const productsResponse = await api.get('/users/feed', {
         params: { category: category !== 'all' ? category : undefined }
       });
-      setProducts(response.data.products);
-      setSellers([]);
+      
+      // Загружаем магазины в зависимости от категории
+      let sellersData = [];
+      if (category === 'all' || category === 'recommended') {
+        const sellersResponse = await api.get('/sellers/all', {
+          params: { limit: 5, sort: 'rating' }
+        });
+        sellersData = sellersResponse.data.sellers || [];
+      } else if (category === 'popular') {
+        const sellersResponse = await api.get('/sellers/all', {
+          params: { limit: 5, sort: 'sales' }
+        });
+        sellersData = sellersResponse.data.sellers || [];
+      }
+      
+      setProducts(productsResponse.data.products);
+      setSellers(sellersData);
     } catch (error) {
       console.error('Ошибка загрузки ленты:', error);
     } finally {
@@ -104,35 +108,6 @@ const Feed = () => {
         </form>
       </div>
 
-      {/* Популярные магазины */}
-      {popularShops.length > 0 && (
-        <div className="popular-shops-section">
-          <div className="section-header">
-            <h2>🏪 Популярные магазины</h2>
-            <Link to="/shops" className="see-all-link">Все →</Link>
-          </div>
-          <div className="shops-horizontal-scroll">
-            {popularShops.map((shop) => (
-              <Link key={shop.id} to={`/seller/${shop.id}`} className="shop-card-compact">
-                <div className="shop-compact-avatar">
-                  <img 
-                    src={shop.logo_url || shop.photo_url || '/default-avatar.png'} 
-                    alt={shop.shop_name}
-                  />
-                </div>
-                <div className="shop-compact-info">
-                  <h4>{shop.shop_name}</h4>
-                  <div className="shop-compact-stats">
-                    <span>⭐ {shop.rating ? parseFloat(shop.rating).toFixed(1) : '0.0'}</span>
-                    <span>📦 {shop.products_count || 0}</span>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Категории ленты */}
       <div className="feed-categories">
         <div className="categories-scroll">
@@ -168,6 +143,41 @@ const Feed = () => {
           </button>
         </div>
       </div>
+
+      {/* Магазины в ленте (если есть) */}
+      {sellers.length > 0 && category !== 'subscription' && (
+        <div className="feed-shops-section">
+          <div className="section-header-inline">
+            <h3>🏪 Магазины</h3>
+            <Link to="/shops" className="see-all-link-small">Все →</Link>
+          </div>
+          <div className="shops-feed-grid">
+            {sellers.map((seller) => (
+              <Link
+                key={seller.id}
+                to={`/seller/${seller.id}`}
+                className="seller-card-feed-compact"
+              >
+                <div className="seller-compact-image">
+                  {seller.logo_url || seller.photo_url ? (
+                    <img src={seller.logo_url || seller.photo_url} alt={seller.shop_name} />
+                  ) : (
+                    <div className="seller-image-placeholder-compact">🏪</div>
+                  )}
+                </div>
+                <div className="seller-compact-details">
+                  <h4>{seller.shop_name}</h4>
+                  <div className="seller-compact-stats">
+                    <span>⭐ {seller.rating ? parseFloat(seller.rating).toFixed(1) : '0.0'}</span>
+                    <span>•</span>
+                    <span>📦 {seller.products_count || 0}</span>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Сетка товаров или магазинов */}
       {category === 'subscription' ? (
