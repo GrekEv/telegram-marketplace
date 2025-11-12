@@ -21,31 +21,11 @@ const Feed = () => {
   const fetchFeed = async () => {
     try {
       setLoading(true);
-      
-      // Загружаем товары
-      const productsResponse = await api.get('/users/feed', {
+      const response = await api.get('/users/feed', {
         params: { category: category !== 'all' ? category : undefined }
       });
-      
-      // Загружаем магазины в зависимости от категории
-      let sellersData = [];
-      if (category === 'all' || category === 'recommended') {
-        const sellersResponse = await api.get('/sellers/all', {
-          params: { limit: 5, sort: 'rating' }
-        });
-        sellersData = sellersResponse.data.sellers || [];
-        console.log('Загружены магазины для категории', category, ':', sellersData);
-      } else if (category === 'popular') {
-        const sellersResponse = await api.get('/sellers/all', {
-          params: { limit: 5, sort: 'sales' }
-        });
-        sellersData = sellersResponse.data.sellers || [];
-        console.log('Загружены магазины для категории popular:', sellersData);
-      }
-      
-      setProducts(productsResponse.data.products);
-      setSellers(sellersData);
-      console.log('Установлены sellers в state:', sellersData.length, 'магазинов');
+      setProducts(response.data.products);
+      setSellers([]);
     } catch (error) {
       console.error('Ошибка загрузки ленты:', error);
     } finally {
@@ -146,41 +126,6 @@ const Feed = () => {
           </button>
         </div>
       </div>
-
-      {/* Магазины в ленте (если есть) */}
-      {sellers.length > 0 && category !== 'subscription' && (
-        <div className="feed-shops-section">
-          <div className="section-header-inline">
-            <h3>🏪 Магазины</h3>
-            <Link to="/shops" className="see-all-link-small">Все →</Link>
-          </div>
-          <div className="shops-feed-grid">
-            {sellers.map((seller) => (
-              <Link
-                key={seller.id}
-                to={`/seller/${seller.id}`}
-                className="seller-card-feed-compact"
-              >
-                <div className="seller-compact-image">
-                  {seller.logo_url || seller.photo_url ? (
-                    <img src={seller.logo_url || seller.photo_url} alt={seller.shop_name} />
-                  ) : (
-                    <div className="seller-image-placeholder-compact">🏪</div>
-                  )}
-                </div>
-                <div className="seller-compact-details">
-                  <h4>{seller.shop_name}</h4>
-                  <div className="seller-compact-stats">
-                    <span>⭐ {seller.rating ? parseFloat(seller.rating).toFixed(1) : '0.0'}</span>
-                    <span>•</span>
-                    <span>📦 {seller.products_count || 0}</span>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Сетка товаров или магазинов */}
       {category === 'subscription' ? (
