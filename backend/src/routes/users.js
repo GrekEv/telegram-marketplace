@@ -1,4 +1,5 @@
 import express from 'express';
+import jwt from 'jsonwebtoken';
 import db from '../database/connection.js';
 import { authenticate } from '../middleware/auth.js';
 
@@ -61,43 +62,47 @@ router.get('/subscriptions', authenticate, async (req, res) => {
   }
 });
 
-// Получить ленту товаров
-router.get('/feed', authenticate, async (req, res) => {
+// Получить ленту товаров (доступна всем, авторизация опциональна)
+router.get('/feed', async (req, res) => {
   try {
     const { category, limit = 50, offset = 0 } = req.query;
-    const userId = req.user.id;
+    
+    // Проверяем, авторизован ли пользователь (опционально)
+    const token = req.headers.authorization?.split(' ')[1];
+    let userId = null;
+    
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        userId = decoded.userId;
+      } catch (err) {
+        // Токен невалидный, но это не критично - просто показываем общую ленту
+      }
+    }
 
-    // Получаем историю поиска пользователя для рекомендаций
-    const searchHistoryResult = await db.query(
-      `SELECT DISTINCT query, filters FROM search_history 
-       WHERE user_id = $1 
-       ORDER BY created_at DESC 
-       LIMIT 10`,
-      [userId]
-    );
-
-    const userSearchTerms = searchHistoryResult.rows.map(sh => sh.query?.toLowerCase()).filter(Boolean);
-    const userFilters = searchHistoryResult.rows
-      .map(sh => sh.filters ? (typeof sh.filters === 'string' ? JSON.parse(sh.filters) : sh.filters) : {})
-      .reduce((acc, f) => {
-        if (f.category) acc.categories = (acc.categories || []).concat(f.category);
-        if (f.shop_name) acc.shop_names = (acc.shop_names || []).concat(f.shop_name);
-        return acc;
-      }, { categories: [], shop_names: [] });
-
-    let whereConditions = ['p.status = $2', 's.status = $3'];
-    const params = [userId, 'approved', 'approved'];
-    let paramIndex = 4;
+    let whereConditions = ['p.status = $1', 's.status = $2'];
+    const params = ['approved', 'approved'];
+    let paramIndex = 3;
 
     if (category) {
       if (category === 'promoted') {
         whereConditions.push('p.is_promoted = true');
         whereConditions.push('p.promotion_until > NOW()');
-      } else if (category === 'subscription') {
+      } else if (category === 'subscription' && userId) {
         whereConditions.push('sub.id IS NOT NULL');
       } else if (category === 'popular') {
         whereConditions.push('p.purchases_count > 10');
       }
+    }
+
+    // Если категория subscription, но нет userId - возвращаем пустой массив
+    if (category === 'subscription' && !userId) {
+      return res.json({
+        products: [],
+        total: 0,
+        limit: parseInt(limit),
+        offset: parseInt(offset)
+      });
     }
 
     const query = `
@@ -106,26 +111,29 @@ router.get('/feed', authenticate, async (req, res) => {
         s.shop_name,
         s.logo_url as seller_logo,
         u.username as seller_username,
-        COUNT(DISTINCT pl.id) as likes_count,
-        CASE WHEN sub.id IS NOT NULL THEN true ELSE false END as is_subscribed
+        COUNT(DISTINCT pl.id) as likes_count
+        ${userId ? ', CASE WHEN sub.id IS NOT NULL THEN true ELSE false END as is_subscribed' : ', false as is_subscribed'}
       FROM products p
       INNER JOIN sellers s ON p.seller_id = s.id
       INNER JOIN users u ON s.user_id = u.id
       LEFT JOIN product_likes pl ON p.id = pl.product_id
-      LEFT JOIN subscriptions sub ON sub.user_id = $1 AND sub.seller_id = s.id
+      ${userId ? `LEFT JOIN subscriptions sub ON sub.user_id = $${paramIndex} AND sub.seller_id = s.id` : ''}
       WHERE ${whereConditions.join(' AND ')}
-      GROUP BY p.id, s.id, u.id, s.shop_name, s.logo_url, u.username, sub.id
+      GROUP BY p.id, s.id, u.id, s.shop_name, s.logo_url, u.username${userId ? ', sub.id' : ''}
       ORDER BY 
         CASE 
           WHEN p.is_promoted = true AND p.promotion_until > NOW() THEN 1
-          WHEN sub.id IS NOT NULL THEN 2
+          ${userId ? 'WHEN sub.id IS NOT NULL THEN 2' : ''}
           WHEN p.purchases_count > 10 THEN 3
           ELSE 4
         END,
         p.created_at DESC
-      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+      LIMIT $${userId ? paramIndex + 1 : paramIndex} OFFSET $${userId ? paramIndex + 2 : paramIndex + 1}
     `;
 
+    if (userId) {
+      params.push(userId);
+    }
     params.push(parseInt(limit), parseInt(offset));
 
     const result = await db.query(query, params);
