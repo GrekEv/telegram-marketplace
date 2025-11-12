@@ -124,8 +124,8 @@ router.post('/apply', authenticate, async (req, res) => {
   }
 });
 
-// Получить список всех магазинов (для всех пользователей)
-router.get('/all', authenticate, async (req, res) => {
+// Получить список всех магазинов (для всех пользователей, без авторизации)
+router.get('/all', async (req, res) => {
   try {
     const { limit = 20, offset = 0, search = '', sort = 'rating' } = req.query;
 

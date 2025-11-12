@@ -34,15 +34,18 @@ const Feed = () => {
           params: { limit: 5, sort: 'rating' }
         });
         sellersData = sellersResponse.data.sellers || [];
+        console.log('Загружены магазины для категории', category, ':', sellersData);
       } else if (category === 'popular') {
         const sellersResponse = await api.get('/sellers/all', {
           params: { limit: 5, sort: 'sales' }
         });
         sellersData = sellersResponse.data.sellers || [];
+        console.log('Загружены магазины для категории popular:', sellersData);
       }
       
       setProducts(productsResponse.data.products);
       setSellers(sellersData);
+      console.log('Установлены sellers в state:', sellersData.length, 'магазинов');
     } catch (error) {
       console.error('Ошибка загрузки ленты:', error);
     } finally {
